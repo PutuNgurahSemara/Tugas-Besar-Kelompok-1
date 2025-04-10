@@ -1,6 +1,6 @@
 # Pahrma-Sys
 
-Aplikasi pendataan obat-obatan yang dapat digunakan oleh apoteker dan farmasi.
+Aplikasi pendataan obat-obatan yang dapat digunakan oleh sebuah apotek atau farmasi.
 
 ![Dashboard Preview](dashboard.png)
 
@@ -8,12 +8,26 @@ Aplikasi pendataan obat-obatan yang dapat digunakan oleh apoteker dan farmasi.
 
 Aplikasi ini adalah proyek yang dibuat untuk membantu salah satu mitra kami dalam mengelolah data obat-obatan di apotek mereka. Aplikasi ini dapat digunakan untuk menginput data obat-obatan, mengupdate data obat-obatan, dan menghapus data. Pada aplikasi ini terdapat dua aktor yaitu admin dan kasir dimana masing masing aktor memiliki hak akses yang berbeda. Admin dapat menginput, mengupdate, dan menghapus data sedangkan kasir hanya dapat menginput data barang yang dibeli. Aplikasi ini dapat menampilkan data obat yang kehabisan stok, paling laris, tanggal expired obat, dan grafik penjualan pada dashboard admin.
 
-## 🚀 Fitur Utama
-
-Sedang dikerjakan
+## 🚀 Fitur Fitur
+#### Sistem Kasir: 
+- Login/Logout
+- Pencatatan pembelian barang
+- Pencatatan penjualan barang
+- Melihat Stok Barang 
+- Melihat produk yang dijual
+#### Sistem Admin:
+- Login/Logout
+- Pengelolaan stok Barang
+- Pengelolaan produk
+- Pengelolaan user
+- Menambahkan informasi Produk
+- Menambahkan harga produk
+- Melihat rekap penjualan
+- Mencetak laporan penjualan
+- Mengubah informasi produk (deskripsi, stok, tanggal kadaluarsa, harga, dan lain sebagainya) 
 
 ## 🔧 Teknologi
-
+Laravel 
 
 ### Frontend
 ### Backend
