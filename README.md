@@ -1,6 +1,6 @@
 # Pahrma-Sys
 
-Aplikasi pendataan obat -obatan yang dapat digunakan oleh apoteker dan farmasi.
+Aplikasi pendataan obat-obatan yang dapat digunakan oleh apoteker dan farmasi.
 
 ![Dashboard Preview](dashboard.png)
 
