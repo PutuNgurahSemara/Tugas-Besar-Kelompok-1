@@ -48,11 +48,11 @@ Sedang dikerjakan
 
 ## 👥 Tim Pengembang
 
-- [Adam Ibnu Ramadhan](https://github.com/adamimir)
-- [Muhammad Bagas Setiawan](https://github.com/Gascrow)
-- [Putu Ngurah Semara](https://github.com/PutuNgurahSemara)
-- [Raisha Alika Irwandira](https://github.com/disnejy)
-- [Rendy Rifandi Kurnia](https://github.com/NorEndGate) 
+- [Adam Ibnu Ramadhan](https://github.com/adamimir) Dev Ops
+- [Muhammad Bagas Setiawan](https://github.com/Gascrow) UI/UX Designer
+- [Putu Ngurah Semara](https://github.com/PutuNgurahSemara) Quality Asurance 
+- [Raisha Alika Irwandira](https://github.com/disnejy) Backend Developer
+- [Rendy Rifandi Kurnia](https://github.com/NorEndGate) Frontend Developer
 
 
 
