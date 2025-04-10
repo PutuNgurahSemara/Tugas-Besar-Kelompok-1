@@ -48,7 +48,7 @@ Sedang dikerjakan
 
 ## 👥 Tim Pengembang
 
-- [Adam Ibnu Ramadhan](https://github.com/PutuNgurahSemara)
+- [Adam Ibnu Ramadhan](https://github.com/adamimir)
 - [Muhammad Bagas Setiawan](https://github.com/Gascrow)
 - [Putu Ngurah Semara](https://github.com/PutuNgurahSemara)
 - [Raisha Alika Irwandira](https://github.com/disnejy)
