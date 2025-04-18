@@ -6,7 +6,7 @@
 **Tanggal**: 10/04/2025
 
 ## Progress Summary
-Pada minggu ini kelompok kami berhasil telah melakukan wawancara dengan mitra dan juga mendapatkan informasi yang cukup untuk mengetahui fitur fitur yang dibutuhkan.
+Pada minggu ini kelompok kami telah membuat Backend dan Frontend aplikasi Pharmasys. Kami juga telah melakukan integrasi antara kedua bagian tersebut.
 
 ## Accomplished Tasks
 - ### ERD
@@ -176,10 +176,53 @@ Pengaturan global sistem apotek.
 
 ---
 
-- ### Membuat kasaran mockup aplikasi
+- ### ⚙️ 2. Backend Skeleton
+
+### Framework: Laravel
+
+### Endpoint yang telah dibuat
+| Method | Endpoint                  | Deskripsi                      |
+|--------|---------------------------|--------------------------------|
+| GET    | `/admin/products`         | Menampilkan daftar produk      |
+| POST   | `/admin/products`         | Menambah produk                |
+| GET    | `/admin/sales`            | Menampilkan daftar penjualan   |
+| POST   | `/admin/sales`            | Menambahkan transaksi penjualan |
+
+Endpoint dapat diakses melalui web route (`web.php`)
+
+---
 
 
-- ### Menentukan teknologi yang akan digunakan
+
+- ### 🎨 3. Frontend Skeleton
+
+### Framework: React
+
+### Halaman dan Routing:
+- `/dashboard` → Menampilkan halaman dashboard kosong
+- `/products` → Menampilkan halaman produk kosong
+
+Contoh struktur routing dasar:
+```jsx
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Dashboard from './pages/Dashboard';
+import Products from './pages/Products';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/products" element={<Products />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+> Tampilan UI masih berupa halaman kosong dan akan dikembangkan lebih lanjut pada minggu berikutnya.
+
+---
   
 ## Challenges & Solutions
 - **Challenge 1**: Database sempat mengalami error sehingga tidak terhubung dengan backend dan frontend.
@@ -191,10 +234,8 @@ Pengaturan global sistem apotek.
 - Melakukan tes internal  
 
 ## Contributions
-- **Adam Ibnu Ramadhan**: Melakukan wawancara, Mencari cara untuk menghubungkan database lokal dari PC 1 ke PC lain
-- **Muhammad Bagas Setiawan**: Melakukan wawancara, Membuat mockup
-- **Putu Ngurah Semara**: Melakukan wawancara, Membuat laporan
-- **Raisha Alika Irwandira**: Melakukan wawancara, Membuat surat mitra dan melakukan notulensi
-- **Rendy Rifandi Kurnia**: Melakukan wawancara, Mencari cara untuk menghubungkan database lokal dari PC 1 ke PC lain
-## Screenshots / Demo
-[Sertakan screenshot atau link demo aplikasi minggu ini]
+- **Adam Ibnu Ramadhan**: Membuat rancangan DB
+- **Muhammad Bagas Setiawan**: Membuat BE dan FE skeleton
+- **Putu Ngurah Semara**: Membuat rancangan DB
+- **Raisha Alika Irwandira**: ...
+- **Rendy Rifandi Kurnia**: ...
