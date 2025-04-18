@@ -170,7 +170,8 @@ Pengaturan global sistem apotek.
 - PENJUALAN (1) → (N) DETAIL_PENJUALAN
 
 
-Gambaran ERD
+## Gambaran ERD
+
 ![alt text](<IMG/ERD Pharmasys.drawio.png>)
 
 ---
@@ -181,15 +182,13 @@ Gambaran ERD
 - ### Menentukan teknologi yang akan digunakan
   
 ## Challenges & Solutions
-- **Challenge 1**: Kurang memahami cara menghubungkan database lokal dari PC 1 ke PC lain
-  - **Solution**: Masih mencari cara dengan menonton video tutorial dan membaca dokumentasi resmi dari MySQL.
-- **Challenge 2**: Kurang memahami penggunaan framework Laravel 
-  - **Solution**: Membaca dokumentasi yang ada dan mencari tutorial dari sumber manapun
+- **Challenge 1**: Database sempat megnalami error sehingga tidak terhubung dengan backend dan frontend.
+  - **Solution**: Debugging menggunakan AI untuk mendeteksi kesalahan dan memperbaiki error.
 
 ## Next Week Plan
-- Membuat ERD (Entity Relationship Diagram)
-- Membuat BE skeleton
-- Membuat FE skeleton
+- Membuat Auth system
+- Membuat beberapa fitur utama
+- Melakukan tes internal  
 
 ## Contributions
 - **Adam Ibnu Ramadhan**: Melakukan wawancara, Mencari cara untuk menghubungkan database lokal dari PC 1 ke PC lain
