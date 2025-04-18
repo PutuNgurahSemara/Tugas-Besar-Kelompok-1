@@ -182,7 +182,7 @@ Pengaturan global sistem apotek.
 - ### Menentukan teknologi yang akan digunakan
   
 ## Challenges & Solutions
-- **Challenge 1**: Database sempat megnalami error sehingga tidak terhubung dengan backend dan frontend.
+- **Challenge 1**: Database sempat mengalami error sehingga tidak terhubung dengan backend dan frontend.
   - **Solution**: Debugging menggunakan AI untuk mendeteksi kesalahan dan memperbaiki error.
 
 ## Next Week Plan
