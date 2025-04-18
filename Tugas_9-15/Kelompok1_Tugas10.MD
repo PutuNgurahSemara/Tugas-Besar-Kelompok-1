@@ -2,8 +2,8 @@
 # Laporan Progres Mingguan - Pharmasys
 **Kelompok**: 1
 **Mitra**: Tiarana Farma
-**Pekan ke-**: 9
-**Tanggal**: 10/04/2025
+**Pekan ke-**: 10
+**Tanggal**: 18/04/2025
 
 ## Progress Summary
 Pada minggu ini kelompok kami telah membuat Backend dan Frontend aplikasi Pharmasys. Kami juga telah melakukan integrasi antara kedua bagian tersebut.
