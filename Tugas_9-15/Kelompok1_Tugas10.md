@@ -2,6 +2,13 @@
 
 **Kelompok**: 1
 
+**Nama anggota kelompok:**
+- Adam Ibnu Ramadhan
+- Muhammad Bagas Setiawan
+- Putu Ngurah Semara
+- Raisha Alika Irwandira 
+- Rendy Rifandi Kurnia
+
 **Mitra**: Tiarana Farma
 
 **Pekan ke-**: 10
