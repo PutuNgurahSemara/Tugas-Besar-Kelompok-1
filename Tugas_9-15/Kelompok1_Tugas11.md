@@ -3,11 +3,11 @@
 **Kelompok**: 1
 
 **Nama anggota kelompok:**
-- Adam Ibnu Ramadhan
-- Muhammad Bagas Setiawan
-- Putu Ngurah Semara
-- Raisha Alika Irwandira 
-- Rendy Rifandi Kurnia
+- Adam Ibnu Ramadhan (10231003)
+- Muhammad Bagas Setiawan (10231061)
+- Putu Ngurah Semara (10231075)
+- Raisha Alika Irwandira (10231077)
+- Rendy Rifandi Kurnia (10231081)
 
 **Mitra**: Tiarana Farma
 
@@ -103,4 +103,7 @@ public function edit(Product $product)
 - **Rendy Rifandi Kurnia**: Membuat update
 
 ## Screenshoot
-
+### Create
+![alt text](IMG/create.png)
+### Login
+![alt text](IMG/Login.png)
