@@ -30,11 +30,59 @@ Pada minggu ini kami berhasil membuat sistem login untuk aplikasi kami yaitu pha
 - ### Membuat fitur Create produk untuk admin 
 Seperti yang sudah dijelaskan di atas bahwa admin bisa menambahkan produk untuk dijual dimana fitur ini adalah yagn dimaksud. Pada fitur ini pengguna yang berperan sebagai admin dapat memasukkan data data barang yang akan dijual seperti nama, deskripsi produk, harga, dan gambar produk. 
 
+``` php
+    public function create()
+    {
+        $title = 'add product';
+        $purchases = Purchase::get();
+        return view('admin.products.create',compact(
+            'title','purchases'
+        ));
+        
+    }
+```
 ---
 
 
 - ### Membuat fitur Update produk untuk admin
 Fitur ini merupakan terusan dari fitur sebelumnya dimana pada fitur pengguna yang berperan sebagai admin dapat mengedit produk seperti nama, deskripsi produk, harga, dan gambar produk. 
+
+``` php
+public function edit(Product $product)
+    {
+        $title = 'edit product';
+        $purchases = Purchase::get();
+        return view('admin.products.edit',compact(
+            'title','product','purchases'
+        ));
+    }
+
+     @param  \Illuminate\Http\Request  $request
+     @param  \app\Models\Product $product
+     @return \Illuminate\Http\Response
+     
+    public function update(Request $request, Product $product)
+    {
+        $this->validate($request,[
+            'product'=>'required|max:200',
+            'price'=>'required',
+            'discount'=>'nullable',
+            'description'=>'nullable|max:255',
+        ]);
+        
+        $price = $request->price;
+        if($request->discount >0){
+           $price = $request->discount * $request->price;
+        }
+       $product->update([
+            'purchase_id'=>$request->product,
+            'price'=>$price,
+            'discount'=>$request->discount,
+            'description'=>$request->description,
+        ]);
+        $notification = notify('product has been updated');
+        return redirect()->route('products.index')->with($notification);}
+```
 
 ---
 
