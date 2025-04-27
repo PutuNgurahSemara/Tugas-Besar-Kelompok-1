@@ -1,8 +1,18 @@
-
 # Laporan Progres Mingguan - Pharmasys
+
 **Kelompok**: 1
+
+**Nama anggota kelompok:**
+- Adam Ibnu Ramadhan
+- Muhammad Bagas Setiawan
+- Putu Ngurah Semara
+- Raisha Alika Irwandira 
+- Rendy Rifandi Kurnia
+
 **Mitra**: Tiarana Farma
+
 **Pekan ke-**: 10
+
 **Tanggal**: 18/04/2025
 
 ## Progress Summary
@@ -237,5 +247,5 @@ function App() {
 - **Adam Ibnu Ramadhan**: Membuat rancangan DB
 - **Muhammad Bagas Setiawan**: Membuat BE dan FE skeleton
 - **Putu Ngurah Semara**: Membuat rancangan DB
-- **Raisha Alika Irwandira**: ...
-- **Rendy Rifandi Kurnia**: ...
+- **Raisha Alika Irwandira**: Tidak aktif 
+- **Rendy Rifandi Kurnia**: Tidak aktif
