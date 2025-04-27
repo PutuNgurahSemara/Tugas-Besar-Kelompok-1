@@ -30,8 +30,9 @@ Aplikasi ini adalah proyek yang dibuat untuk membantu salah satu mitra kami dala
 Laravel 
 
 ### Frontend
+Laravel-Mix
 ### Backend
-
+Laravel
 
 ## 📂 Struktur Proyek
 
@@ -63,9 +64,9 @@ Sedang dikerjakan
 ## 👥 Tim Pengembang
 
 - [Adam Ibnu Ramadhan](https://github.com/adamimir) Dev Ops
-- [Muhammad Bagas Setiawan](https://github.com/Gascrow) UI/UX Designer
-- [Putu Ngurah Semara](https://github.com/PutuNgurahSemara) Quality Asurance 
-- [Raisha Alika Irwandira](https://github.com/disnejy) Backend Developer
+- [Muhammad Bagas Setiawan](https://github.com/Gascrow) Backend Developer
+- [Putu Ngurah Semara](https://github.com/PutuNgurahSemara) Frontend Developer 
+- [Raisha Alika Irwandira](https://github.com/disnejy) Quality Assurance
 - [Rendy Rifandi Kurnia](https://github.com/NorEndGate) Frontend Developer
 
 
