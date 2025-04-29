@@ -73,13 +73,17 @@ Route::middleware(['guest'])->prefix('admin')->group(function () {
     Route::get('reset-password/{token}',[ResetPasswordController::class,'index'])->name('password.reset');
     Route::post('reset-password',[ResetPasswordController::class,'resetPassword'])->name('password.update');
 
-    return 'Root Route OK'; // Kembalikan string sederhana untuk testing
+    // return 'Root Route OK'; // Kembalikan string sederhana untuk testing
 });
 
 // Rute login dipindah ke sini tanpa prefix dan middleware guest
 Route::get('login',[App\Http\Controllers\Admin\Auth\LoginController::class,'index'])->name('login');
 Route::post('login',[App\Http\Controllers\Admin\Auth\LoginController::class,'login']);
 
+Route::get('/', function () {
+    return redirect('/login');
+});
+
 Route::get('/test-route', function () {
-    return 'Test Route OK';
+
 });
