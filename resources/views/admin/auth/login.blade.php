@@ -5,7 +5,7 @@
 {{-- <h1>Pharmacy System</h1> --}}
 {{-- <p class="account-subtitle">Login Panel</p> --}}
 
-@if (session('login_error'))
+@if (session()->has('login_error') && !empty(session('login_error')))
 <x-alerts.danger :error="session('login_error')" />
 @endif
 <!-- Form -->
