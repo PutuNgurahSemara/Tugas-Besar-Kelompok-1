@@ -39,7 +39,7 @@
 
 ---
 
-- ### Memperbaiki Fitur Yang Ada Pada Role Admin
+- ### Melakukan Testing Dengan Mitra
   Minggu ini kami melakukan testing bersama dengan mitra dimana sempat terjadi error pada fitur yang belum kami selesaikan. Dari pihak mitra meminta untuk menambahkan beberapa perubahan pada beberapa fitur yang mana dirasa kurang sesuai dengan yang dibutuhkan
 
 ---
@@ -55,14 +55,24 @@
 - Melakukan pengujuian dengan mitra
 
 ## Contributions
-- **Adam Ibnu Ramadhan**: Membuat create
-- **Muhammad Bagas Setiawan**: Membuat auth 
-- **Putu Ngurah Semara**: Membuat create
-- **Raisha Alika Irwandira**: Membuat update 
-- **Rendy Rifandi Kurnia**: Membuat update
+- **Adam Ibnu Ramadhan**: 
+- **Muhammad Bagas Setiawan**:  
+- **Putu Ngurah Semara**: 
+- **Raisha Alika Irwandira**:  
+- **Rendy Rifandi Kurnia**: 
 
 ## Screenshoot
-### Create
-![alt text](IMG/create.png)
-### Login
-![alt text](IMG/Login.png)
+### Fitur Supplier
+![alt text](IMG/Supplier.png)
+### Fitur Report
+![alt text](IMG/Sales.png)
+### Fitur Access Controll
+![alt text](IMG/Access%20Controll.png)
+### Fitur User
+![alt text](IMG/User.png)
+### Fitur Profile
+![alt text](IMG/Profile.png)
+### Fitur Setting
+![alt text](IMG/Setting.png)
+### Dokumentasi Bersama Mitra
+![alt text](IMG/DokumentasiMitra.jpeg)
