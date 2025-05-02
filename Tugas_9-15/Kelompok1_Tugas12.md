@@ -44,6 +44,15 @@
 
 ---
 
+## Test Case
+| ID Test Case | Deskripsi                         | Langkah Uji                                                                 | Data Uji                        | Output Diharapkan                        | Hasil Aktual | Status |
+|--------------|-----------------------------------|-----------------------------------------------------------------------------|----------------------------------|-------------------------------------------|---------------|--------|
+| 1        | Menambahkan Category           | 1. Buka halaman Categories <br> 2. Tekan tombol Add Category <br> 3. Ketik nama kategori baru <br> 4. Tekan tombol Save Change | Vitamin <br> | Data Category baru dapat masuk ke dalam database dan muncul pada tabel            | Sesuai       | Pass   |
+| 2        |  Menambahkan Supplier       | 1. Buka halaman supplier <br> 2. Tekan tombol Add New <br> 3. Isi data dari suuplier yang diperlukan <br> 4. Tekan submit  | Name: Ican CodeWW <br> Email: mahasiswaSI@itk.ac.id <br> Phone: 085433535365 <br> Company: SukaTani.net <br> Address: jl sadaw <br> product: Vitamin <br> Comment: Apa aja yang penting ok | Data supplier baru ditambahkan dalam tabel dan database        | Sesuai       | Pass   |
+| 3        | Melihat Sale Report         | 1. Buka halaman sale report pada dropdown Report <br> 2. Klik tombol “Generate Report” <br> 3. Isi tanggal awal hingga akhir yang ingin dicek <br> 4. Klik Submit | From: 01/04/2025 <br> To: 02/05/2025 | Menampilkan data penjualan dalam bentuk tabel   | Sesuai       | Pass   |
+
+
+
 ## Challenges & Solutions
 - **Challenge 1**: Kurangnya partisipasi anggota lain dalam pengerjaan proyek
   - **Solution**: Mengerjakan sebisa mungkin dengan sumber daya manusia yang ada untuk menyelesaikan projek.
@@ -55,11 +64,11 @@
 - Melakukan pengujuian dengan mitra
 
 ## Contributions
-- **Adam Ibnu Ramadhan**: 
-- **Muhammad Bagas Setiawan**:  
-- **Putu Ngurah Semara**: 
-- **Raisha Alika Irwandira**:  
-- **Rendy Rifandi Kurnia**: 
+- **Adam Ibnu Ramadhan**: Mengerjakan perbaikan fitur sebelumnya
+- **Muhammad Bagas Setiawan**:  Mengerjakan fitur lanjutan
+- **Putu Ngurah Semara**: Mengubah tampilan pada beberapa halaman 
+- **Raisha Alika Irwandira**:  Menghubungi mitra
+- **Rendy Rifandi Kurnia**: Menghubungi mitra
 
 ## Screenshoot
 ### Fitur Supplier
@@ -76,3 +85,29 @@
 ![alt text](IMG/Setting.png)
 ### Dokumentasi Bersama Mitra
 ![alt text](IMG/DokumentasiMitra.jpeg)
+
+### test case
+- ### TC1
+  - ### Langkah 1 dan 2
+  ![alt text](IMG/cate.png)
+  - ### Langkah 3 dan 4
+  ![alt text](<IMG/Add Cate.png>)
+  - ### Hasil
+  ![alt text](IMG/hasilTC1.png)
+
+
+- ### TC2
+  - ### Langkah 1 dan 2
+  ![alt text](IMG/supp.png)
+  - ### Langkah 3 dan 4
+  ![alt text](IMG/crtsupp.png)
+  - ### Hasil
+  ![alt text](IMG/hasilTC2.png)
+
+- ### TC3 
+  - ### Langkah 1 dan 2
+  ![alt text](IMG/Report.png)
+  - ### Langkah 3 dan 4
+  ![alt text](IMG/addrept.png)
+  - ### Hasil
+  ![alt text](IMG/hasilTC3.png)
