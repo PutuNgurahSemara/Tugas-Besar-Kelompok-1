@@ -1,0 +1,286 @@
+import AppLayout from '@/layouts/app-layout';
+import { type BreadcrumbItem } from '@/types';
+import { Head, useForm, usePage, router } from '@inertiajs/react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState, useMemo } from 'react';
+import { Search, X } from 'lucide-react';
+import { useTranslation } from '@/hooks/use-translation';
+import { useToast } from '@/components/ui/toast';
+
+// Interface Produk
+interface Produk {
+    id: number;
+    nama: string;
+    harga: number;
+    quantity: number;
+    image?: string;
+}
+
+// Komponen InputError sederhana
+function InputError({ message, className = "" }: { message?: string; className?: string }) {
+    if (!message) return null;
+    return <div className={`text-red-500 text-xs mt-1 ${className}`}>{message}</div>;
+}
+
+interface SalesCreateProps {
+    products: Produk[];
+}
+
+interface CartItem extends Produk {
+    cart_quantity: number;
+}
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: route('dashboard') },
+    { title: 'Sales', href: route('sales.index') },
+    { title: 'Add Sale', href: route('sales.create') },
+];
+
+export default function SalesCreate() {
+    const { t } = useTranslation();
+    const { showToast } = useToast();
+    
+    // Akses props dengan aman
+    const { products } = (usePage().props as any).products ? (usePage().props as any) : { products: [] };
+    const [searchTerm, setSearchTerm] = useState('');
+    const [cart, setCart] = useState<CartItem[]>([]);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+
+    const { data, setData, post, errors, processing, reset } = useForm({
+        payment_method: 'Cash',
+        amount_paid: '',
+    });
+
+    // Filter produk berdasarkan search term
+    const filteredProducts = useMemo(() => {
+        if (!searchTerm) return products;
+        return products.filter((p: Produk) =>
+            p.nama.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [products, searchTerm]);
+
+    // Tambah produk ke keranjang
+    const addToCart = (product: Produk) => {
+        setCart(currentCart => {
+            const existingItem = currentCart.find((item: CartItem) => item.id === product.id);
+            if (existingItem) {
+                if (existingItem.cart_quantity < (product.quantity ?? Infinity)) {
+                    return currentCart.map((item: CartItem) =>
+                        item.id === product.id
+                            ? { ...item, cart_quantity: item.cart_quantity + 1 }
+                            : item
+                    );
+                }
+                return currentCart;
+            } else {
+                if ((product.quantity ?? 0) > 0) {
+                    return [...currentCart, { ...product, cart_quantity: 1 }];
+                }
+                return currentCart;
+            }
+        });
+    };
+
+    // Update kuantitas di keranjang
+    const updateCartQuantity = (productId: number, newQuantity: number) => {
+        setCart(currentCart => {
+            const productInStock = products.find((p: Produk) => p.id === productId);
+            const maxQuantity = productInStock?.quantity ?? 0;
+            const validatedQuantity = Math.max(1, Math.min(newQuantity, maxQuantity));
+            return currentCart.map((item: CartItem) =>
+                item.id === productId
+                    ? { ...item, cart_quantity: validatedQuantity }
+                    : item
+            );
+        });
+    };
+
+    // Hapus item dari keranjang
+    const removeFromCart = (productId: number) => {
+        setCart(currentCart => currentCart.filter((item: CartItem) => item.id !== productId));
+    };
+
+    // Hitung total
+    const totalPrice = useMemo(() => {
+        return cart.reduce((total, item) => total + (item.harga * item.cart_quantity), 0);
+    }, [cart]);
+
+    // Submit form
+    function submitSale(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        const dataToSend = {
+            payment_method: data.payment_method,
+            amount_paid: data.amount_paid,
+            items: cart.map((item: CartItem) => ({
+                produk_id: item.id,
+                quantity: item.cart_quantity,
+                price: item.harga
+            })),
+        };
+        router.post(route('sales.store'), dataToSend, {
+            onSuccess: () => {
+                setCart([]);
+                reset();
+                // Tampilkan toast notifikasi sukses
+                showToast(
+                    t('payment.success'),
+                    t('transaction.saved'),
+                    'success',
+                    5000
+                );
+            },
+            onError: (errors) => {
+                // Tampilkan toast notifikasi error
+                let errorMsg = t('transaction.error');
+                if (errors.items) {
+                    errorMsg = Array.isArray(errors.items) 
+                        ? errors.items[0]
+                        : errors.items;
+                }
+                
+                showToast(
+                    t('payment.failed'),
+                    errorMsg,
+                    'error',
+                    5000
+                );
+            }
+        });
+    }
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title={t('sales.pos')} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Kolom Daftar Produk (Kiri) */}
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle>{t('products.title')}</CardTitle>
+                        <div className="relative mt-2">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                placeholder={t('search.products')}
+                                className="pl-8 w-full"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <ScrollArea className="h-[500px]">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                {filteredProducts.map((product: Produk) => (
+                                    <Card
+                                        key={product.id}
+                                        className={`overflow-hidden cursor-pointer hover:shadow-lg transition-shadow ${product.quantity === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        onClick={() => product.quantity !== 0 && addToCart(product)}
+                                        title={product.quantity === 0 ? t('out.of.stock') : `${t('add.to.cart')}: ${product.nama}`}
+                                    >
+                                        {product.image ? (
+                                            <img src={`/storage/${product.image}`} alt={product.nama} className="h-24 w-full object-cover" />
+                                        ) : (
+                                            <div className="h-24 w-full bg-muted flex items-center justify-center text-xs text-muted-foreground">{t('no.image')}</div>
+                                        )}
+                                        <div className="p-2 text-sm">
+                                            <p className="font-medium truncate">{product.nama}</p>
+                                            <p className="text-muted-foreground">Rp {product.harga.toLocaleString('id-ID')}</p>
+                                            <p className={`text-xs ${product.quantity === 0 ? 'text-red-500' : 'text-gray-500'}`}>{t('stock')} {product.quantity ?? 0}</p>
+                                        </div>
+                                    </Card>
+                                ))}
+                                {filteredProducts.length === 0 && (
+                                    <p className="col-span-full text-center text-muted-foreground mt-4">{t('no.products')}</p>
+                                )}
+                            </div>
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+
+                {/* Kolom Keranjang & Pembayaran (Kanan) */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{t('cart')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={submitSale} className="flex flex-col h-full">
+                            <ScrollArea className="flex-grow mb-4">
+                                {cart.length === 0 ? (
+                                    <p className="text-center text-muted-foreground py-4">{t('cart.empty')}</p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>{t('item')}</TableHead>
+                                                <TableHead>{t('qty')}</TableHead>
+                                                <TableHead>{t('subtotal')}</TableHead>
+                                                <TableHead>{t('del')}</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {cart.map((item: CartItem) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell className="font-medium text-xs truncate">{item.nama}</TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            type="number"
+                                                            min="1"
+                                                            max={item.quantity}
+                                                            value={item.cart_quantity}
+                                                            onChange={(e) => updateCartQuantity(item.id, parseInt(e.target.value) || 1)}
+                                                            className="h-8 w-16 text-center"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">Rp {(item.harga * item.cart_quantity).toLocaleString('id-ID')}</TableCell>
+                                                    <TableCell>
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(item.id)}>
+                                                            <X className="h-4 w-4 text-red-500" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </ScrollArea>
+
+                            <div className="border-t pt-4 space-y-4 mt-auto">
+                                <div className="flex justify-between font-semibold text-lg">
+                                    <span>{t('total')}</span>
+                                    <span>Rp {totalPrice.toLocaleString('id-ID')}</span>
+                                </div>
+                                <div>
+                                    <Label htmlFor="amount_paid">{t('amount.paid')}</Label>
+                                    <Input
+                                        id="amount_paid"
+                                        type="number"
+                                        placeholder={t('enter.amount')}
+                                        value={data.amount_paid}
+                                        onChange={(e) => setData('amount_paid', e.target.value)}
+                                        min={totalPrice}
+                                    />
+                                    <InputError message={typeof (errors as any).amount_paid === 'string' ? (errors as any).amount_paid : undefined} className="mt-2" />
+                                </div>
+                                <Button
+                                    type="submit"
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                    disabled={processing || cart.length === 0}
+                                >
+                                    {processing ? t('processing') : t('complete.sale')}
+                                </Button>
+                                <InputError message={typeof (errors as any).items === 'string' ? (errors as any).items : Array.isArray((errors as any).items) ? (errors as any).items[0] : undefined} className="mt-2 text-center" />
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
+            </div>
+        </AppLayout>
+    );
+} 

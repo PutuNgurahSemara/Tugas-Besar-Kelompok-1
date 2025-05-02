@@ -1,0 +1,259 @@
+.
+├── app
+│   ├── Http
+│   │   ├── Controllers
+│   │   │   ├── Auth
+│   │   │   │   ├── AuthenticatedSessionController.php
+│   │   │   │   ├── ConfirmablePasswordController.php
+│   │   │   │   ├── EmailVerificationNotificationController.php
+│   │   │   │   ├── EmailVerificationPromptController.php
+│   │   │   │   ├── NewPasswordController.php
+│   │   │   │   ├── PasswordController.php
+│   │   │   │   ├── PasswordResetLinkController.php
+│   │   │   │   ├── RegisteredUserController.php
+│   │   │   │   └── VerifyEmailController.php
+│   │   │   ├── Settings
+│   │   │   │   ├── PasswordController.php
+│   │   │   │   └── ProfileController.php
+│   │   │   ├── Controller.php
+│   │   │   └── ProfileController.php
+│   │   ├── Middleware
+│   │   │   ├── HandleAppearance.php
+│   │   │   └── HandleInertiaRequests.php
+│   │   └── Requests
+│   │       ├── Auth
+│   │       │   └── LoginRequest.php
+│   │       ├── Settings
+│   │       │   └── ProfileUpdateRequest.php
+│   │       └── ProfileUpdateRequest.php
+│   ├── Models
+│   │   └── User.php
+│   ├── Providers
+│   │   └── AppServiceProvider.php
+│   └── View
+│       └── Components
+│           ├── AppLayout.php
+│           └── GuestLayout.php
+├── bootstrap
+│   ├── cache
+│   │   ├── packages.php
+│   │   └── services.php
+│   ├── app.php
+│   └── providers.php
+├── config
+│   ├── app.php
+│   ├── auth.php
+│   ├── cache.php
+│   ├── database.php
+│   ├── filesystems.php
+│   ├── inertia.php
+│   ├── logging.php
+│   ├── mail.php
+│   ├── queue.php
+│   ├── services.php
+│   └── session.php
+├── database
+│   ├── factories
+│   │   └── UserFactory.php
+│   ├── migrations
+│   │   ├── 0001_01_01_000000_create_users_table.php
+│   │   ├── 0001_01_01_000001_create_cache_table.php
+│   │   └── 0001_01_01_000002_create_jobs_table.php
+│   ├── seeders
+│   │   └── DatabaseSeeder.php
+│   └── database.sqlite
+├── public
+│   ├── apple-touch-icon.png
+│   ├── favicon.ico
+│   ├── favicon.svg
+│   ├── hot
+│   ├── index.php
+│   ├── logo.svg
+│   └── robots.txt
+├── resources
+│   ├── css
+│   │   └── app.css
+│   ├── js
+│   │   ├── components
+│   │   │   ├── ui
+│   │   │   │   ├── alert.tsx
+│   │   │   │   ├── avatar.tsx
+│   │   │   │   ├── badge.tsx
+│   │   │   │   ├── breadcrumb.tsx
+│   │   │   │   ├── button.tsx
+│   │   │   │   ├── card.tsx
+│   │   │   │   ├── checkbox.tsx
+│   │   │   │   ├── collapsible.tsx
+│   │   │   │   ├── dialog.tsx
+│   │   │   │   ├── dropdown-menu.tsx
+│   │   │   │   ├── icon.tsx
+│   │   │   │   ├── input.tsx
+│   │   │   │   ├── label.tsx
+│   │   │   │   ├── navigation-menu.tsx
+│   │   │   │   ├── placeholder-pattern.tsx
+│   │   │   │   ├── select.tsx
+│   │   │   │   ├── separator.tsx
+│   │   │   │   ├── sheet.tsx
+│   │   │   │   ├── sidebar.tsx
+│   │   │   │   ├── skeleton.tsx
+│   │   │   │   ├── toggle-group.tsx
+│   │   │   │   ├── toggle.tsx
+│   │   │   │   └── tooltip.tsx
+│   │   │   ├── app-content.tsx
+│   │   │   ├── app-header.tsx
+│   │   │   ├── app-logo-icon.tsx
+│   │   │   ├── app-logo.tsx
+│   │   │   ├── app-shell.tsx
+│   │   │   ├── app-sidebar-header.tsx
+│   │   │   ├── app-sidebar.tsx
+│   │   │   ├── appearance-dropdown.tsx
+│   │   │   ├── appearance-tabs.tsx
+│   │   │   ├── breadcrumbs.tsx
+│   │   │   ├── delete-user.tsx
+│   │   │   ├── heading-small.tsx
+│   │   │   ├── heading.tsx
+│   │   │   ├── icon.tsx
+│   │   │   ├── input-error.tsx
+│   │   │   ├── nav-footer.tsx
+│   │   │   ├── nav-main.tsx
+│   │   │   ├── nav-user.tsx
+│   │   │   ├── text-link.tsx
+│   │   │   ├── ThemeToggle.tsx
+│   │   │   ├── user-info.tsx
+│   │   │   └── user-menu-content.tsx
+│   │   ├── hooks
+│   │   │   ├── use-appearance.tsx
+│   │   │   ├── use-initials.tsx
+│   │   │   ├── use-mobile-navigation.ts
+│   │   │   └── use-mobile.tsx
+│   │   ├── layouts
+│   │   │   ├── app
+│   │   │   │   ├── app-header-layout.tsx
+│   │   │   │   └── app-sidebar-layout.tsx
+│   │   │   ├── auth
+│   │   │   │   ├── auth-card-layout.tsx
+│   │   │   │   ├── auth-simple-layout.tsx
+│   │   │   │   └── auth-split-layout.tsx
+│   │   │   ├── settings
+│   │   │   │   └── layout.tsx
+│   │   │   ├── app-layout.tsx
+│   │   │   └── auth-layout.tsx
+│   │   ├── lib
+│   │   │   └── utils.ts
+│   │   ├── pages
+│   │   │   ├── auth
+│   │   │   │   ├── confirm-password.tsx
+│   │   │   │   ├── forgot-password.tsx
+│   │   │   │   ├── Login.tsx
+│   │   │   │   ├── register.tsx
+│   │   │   │   ├── reset-password.tsx
+│   │   │   │   └── verify-email.tsx
+│   │   │   ├── settings
+│   │   │   │   ├── appearance.tsx
+│   │   │   │   ├── password.tsx
+│   │   │   │   └── profile.tsx
+│   │   │   ├── dashboard.tsx
+│   │   │   └── welcome.tsx
+│   │   ├── types
+│   │   │   ├── global.d.ts
+│   │   │   ├── index.d.ts
+│   │   │   └── vite-env.d.ts
+│   │   ├── app.tsx
+│   │   └── ssr.tsx
+│   └── views
+│       ├── auth
+│       │   ├── confirm-password.blade.php
+│       │   ├── forgot-password.blade.php
+│       │   ├── login.blade.php
+│       │   ├── register.blade.php
+│       │   ├── reset-password.blade.php
+│       │   └── verify-email.blade.php
+│       ├── components
+│       │   ├── application-logo.blade.php
+│       │   ├── auth-session-status.blade.php
+│       │   ├── danger-button.blade.php
+│       │   ├── dropdown-link.blade.php
+│       │   ├── dropdown.blade.php
+│       │   ├── input-error.blade.php
+│       │   ├── input-label.blade.php
+│       │   ├── modal.blade.php
+│       │   ├── nav-link.blade.php
+│       │   ├── primary-button.blade.php
+│       │   ├── responsive-nav-link.blade.php
+│       │   ├── secondary-button.blade.php
+│       │   └── text-input.blade.php
+│       ├── layouts
+│       │   ├── app.blade.php
+│       │   ├── guest.blade.php
+│       │   └── navigation.blade.php
+│       ├── profile
+│       │   ├── partials
+│       │   │   ├── delete-user-form.blade.php
+│       │   │   ├── update-password-form.blade.php
+│       │   │   └── update-profile-information-form.blade.php
+│       │   └── edit.blade.php
+│       ├── app.blade.php
+│       ├── dashboard.blade.php
+│       └── welcome.blade.php
+├── routes
+│   ├── auth.php
+│   ├── console.php
+│   ├── settings.php
+│   └── web.php
+├── storage
+│   ├── app
+│   │   ├── private
+│   │   └── public
+│   ├── framework
+│   │   ├── cache
+│   │   │   └── data
+│   │   ├── sessions
+│   │   ├── testing
+│   │   └── views
+│   │       ├── 02f50d73b2a88434ca571d3747818ddc.php
+│   │       ├── 23d5a12b956b59cbc3488c1940ff0533.php
+│   │       ├── 23e528528d826c5ca309e2f97692504b.php
+│   │       ├── 52423b7248ddbc387225b4063b76d62b.php
+│   │       ├── 55c45eb014cf0c225728d3e67943ffa4.php
+│   │       ├── 764114a2f98584955970656eaab86310.php
+│   │       ├── 8edd800b600b1cc718b3611d71565c9b.php
+│   │       ├── abad3e3ebead6b0409463cd6812c493b.php
+│   │       ├── bcce0a07ab4cac464c547a80888ce01e.php
+│   │       └── cc4bc41e7ea5ecb0e8ef89c22c026068.php
+│   └── logs
+│       └── laravel.log
+├── tests
+│   ├── Feature
+│   │   ├── Auth
+│   │   │   ├── AuthenticationTest.php
+│   │   │   ├── EmailVerificationTest.php
+│   │   │   ├── PasswordConfirmationTest.php
+│   │   │   ├── PasswordResetTest.php
+│   │   │   ├── PasswordUpdateTest.php
+│   │   │   └── RegistrationTest.php
+│   │   ├── Settings
+│   │   │   ├── PasswordUpdateTest.php
+│   │   │   └── ProfileUpdateTest.php
+│   │   ├── DashboardTest.php
+│   │   ├── ExampleTest.php
+│   │   └── ProfileTest.php
+│   ├── Unit
+│   │   └── ExampleTest.php
+│   ├── Pest.php
+│   └── TestCase.php
+├Vendor--
+├── artisan
+├── components.json
+├── composer.json
+├── composer.lock
+├── eslint.config.js
+├── package-lock.json
+├── package.json
+├── phpunit.xml
+├── postcss.config.mjs
+├── struktur-folder.txt
+├── tailwind.config.js
+├── tsconfig.json
+└── vite.config.ts
+
+1639 directories, 9533 files

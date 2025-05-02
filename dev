@@ -1,0 +1,37 @@
+> vite
+
+failed to load config from /Users/bagasxy/Tugas-Proweb/Salinan new
+failed to load config from /Users/bagasxy/Tugas-Proweb/Salinan new/pharmasys-vite/vite.config.ts
+error when starting dev server:
+Error: Dynamic require of "file:///Users/bagasxy/Tugas-Proweb/Sali
+Error: Dynamic require of "file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/autoprefixer/lib/autoprefixe
+Error: Dynamic require of "file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/autoprefixer/lib/autoprefixer.js" is not supported
+    at file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-
+    at file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/.vite-temp/vite.config.ts.timestamp-174602184857
+    at file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/.vite-temp/vite.config.ts.timestamp-1746021848578-02dfc30bc487d.mjs:5:9
+    at file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-
+    at file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/.vite-temp/vite.config.ts.timestamp-174602184857
+    at file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/.vite-temp/vite.config.ts.timestamp-1746021848578-02dfc30bc487d.mjs:39:9
+    at ModuleJob.run (node:internal/modules/esm/module_job:274:25)
+    at async onImport.tracePromise.__proto__ (node:internal/module
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:644:26)
+    at async loadConfigFromBundledFile (file:///Users/bagasxy/Tuga
+    at async loadConfigFromBundledFile (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/
+    at async loadConfigFromBundledFile (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/chunks/dep-Bn81Esdm.js:49416:15)
+    at async bundleAndLoadConfigFile (file:///Users/bagasxy/Tugas-
+    at async bundleAndLoadConfigFile (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/ch
+    at async bundleAndLoadConfigFile (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/chunks/dep-Bn81Esdm.js:49259:22)
+    at async loadConfigFromFile (file:///Users/bagasxy/Tugas-Prowe
+    at async loadConfigFromFile (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/chunks/
+    at async loadConfigFromFile (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/chunks/dep-Bn81Esdm.js:49222:44)
+    at async resolveConfig (file:///Users/bagasxy/Tugas-Proweb/Sal
+    at async resolveConfig (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/chunks/dep-B
+    at async resolveConfig (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/chunks/dep-Bn81Esdm.js:48718:24)
+    at async _createServer (file:///Users/bagasxy/Tugas-Proweb/Sal
+    at async _createServer (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/chunks/dep-B
+    at async _createServer (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/chunks/dep-Bn81Esdm.js:38329:18)
+    at async CAC.<anonymous> (file:///Users/bagasxy/Tugas-Proweb/S
+    at async CAC.<anonymous> (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/node/cli.js:753
+    at async CAC.<anonymous> (file:///Users/bagasxy/Tugas-Proweb/Salinan%20new/pharmasys-vite/node_modules/vite/dist/n
+
+
