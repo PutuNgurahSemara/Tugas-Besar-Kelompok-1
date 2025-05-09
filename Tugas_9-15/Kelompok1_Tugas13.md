@@ -11,9 +11,9 @@
 
 **Mitra**: Tiarana Farma
 
-**Pekan ke-**: 12
+**Pekan ke-**: 13
 
-**Tanggal**: 1/05/2025
+**Tanggal**: 09/05/2025
 
 ## Progress Summary
 
@@ -22,92 +22,86 @@
 
 ---
 
-- ### Menyelesaikan Fitur Pada Role Kasir
+- ### Memperbarui Tampilan 
 
-    Pada minggu ini kami berhasil menyelesaikan fitur untuk role kasir sehingga pada akun kasir dapat melakukan penjualan. Fitur ini meliputi memilih produk yang dipilih pelanggan dan menambahkan dalam keranjang yang kemudian akan ditotal untuk menampilkan harga yang harus dibayarkan pelanggan; Tampilan dashboard yang menunjukkan pie chart dari penjualan, List produk yang baru baru terjual, dan jumlah produk yang expired; Akun kasir juga bisa melakukan perubahan pada foto profilenya untuk menyesuaikan dengan kemauannya. 
+   Pada minggu ini, kami melakukan upaya perbaikan dan penyempurnaan tampilan antarmuka sistem agar terlihat lebih modern dan responsif. Salah satu langkah signifikan yang kami ambil adalah mengganti teknologi pengelolaan aset front-end yang sebelumnya menggunakan Laravel Mix menjadi Laravel Vite. Perubahan ini didasari oleh kebutuhan untuk meningkatkan efisiensi dalam proses pengembangan, mempercepat waktu build, serta memanfaatkan dukungan teknologi modern seperti React, Tailwind CSS, dan TypeScript secara lebih optimal. Laravel Vite menyediakan fitur hot module replacement (HMR) yang memungkinkan perubahan kode terlihat secara langsung tanpa perlu me-refresh halaman, sehingga sangat mempercepat proses iterasi desain dan pengujian antarmuka. Dengan beralih ke Laravel Vite, kami berharap pengalaman pengguna dan performa sistem dapat ditingkatkan secara signifikan, sejalan dengan tujuan kami untuk menghadirkan sistem yang modern, cepat, dan mudah dikembangkan ke depannya.
+
+   gambar pembaruan sistem:
+   
+   #### a. Login
+   [alt text](IMG/login-new.png)
+   #### b. Dashboard
+   [alt text](IMG/dashboard-new.png)
+   #### c. Kategori
+   [alt text](IMG/kategori-new.png)
+   #### d. Pembelian
+   [alt text](IMG/pembelian-new.png)
+   #### e. Gudang
+   [alt text](IMG/gudang-new.png)
+   #### f. Produk
+   [alt text](IMG/produk.png)
+   #### g. Riwayat Penjualan
+   [alt text](IMG/riwayat-penjualan-new.png)
+   #### h. Supplier
+   [alt text](IMG/supplier-new.png)
+   #### i. Laporan Penjualan
+   [alt text](IMG/laporan-penjualan-new.png)
+   #### j. Laporan Pembelian
+   [alt text](IMG/laporan-pembelian-new.png)
+   #### k. Hak Akses (pengguna)
+   [alt text](IMG/hakaksespengguna-new.png)
+   #### l. Hak Akses (peran)
+   [alt text](IMG/hakaksesperan-new.png)
+   #### m. Hak Akses (izin)
+   [alt text](IMG/hakaksesizin-new.png)
+   #### n. Pengaturam Profile penguna
+   [alt text](IMG/pengaturanprofile-new.png)
+   #### o. Pengaturan Aplikasi 
+   [alt text](IMG/pengaturanaplikasi-new.png)
 ---
 
-- ### Menambahkan Fitur Yang Ada Pada Role Admin 
-     Sebelumnya pada role admin hanya bisa melakukan CRUD produk obat namun sekarang kami menambahkan fitur seperti supplier untuk menentukan obat yang akan di restock, Report untuk menampilkan laporan penghasilan selama kurun waktu tertentu, access controll untuk mengubah akses dari suatu akun kasir agar dapat menggunakan fitur lain yang ada, User dimana admin dapat menghapus akun akun yang ada, Profile dimana admin bisa mengubah foto profilenya, dan Setting untuk mengatur tampilan aplikasi
+- ### Melengkapi Fitur Yang Ada Pada Role Admin dan Sales
+     
+     Pada minggu kemarin hasil dari testing bersama Mitra, ada beberapa hal yang perlu di lengkap dari fitur fitur yang ada yaitu:
 
+     a. Fitur Transaksi Penjualan
+     #### sebelum:
+    ![alt text](IMG/transaksi-penjualan.jpeg)
+     *hanya dapat memilih satu obat untuk setiap transaki (tidak dapat memeilih banyak obat dalam setiap transaksi)
+
+     #### sesudah:
+    ![alt text](IMG/transaksi-penjualan.png)
+     *setiap transaksi bisa memilih beberapa obat
+
+     b. Fitur Supplier
+     #### sebelum
+    ![alt text](IMG/purchase.jpeg)
+     *Belum ada kolom tanggal faktur, dan tenggat pembayaran
+
+     #### sesudah:
+    ![alt text](IMG/purchase-new.png)
+     *Sudah ada detail dari setiap faktur yang dibeli seperti tanggal pembelian dan tenggat pembayaran
+
+     c. Penambahan Fitur Laporan Penjualan
+    ![alt text](IMG/laporan-pembelian.png)
+     sebelumnya hanya dapat melihat laporan pemjualan, dan sekarang menambhakan fitur laporan pembelian obat dari supplier dengan grafik.
 ---
 
+- ### Melakukan Testing Mandiri
+  Kami melakukan testing untuk mengecek performa dan fungsionalitas fitur dan menemukan bebrapa hal yang perlu di perbaiki diantaranya
 
-- ### Memperbaiki Fitur Yang Ada Pada Role Admin 
-     Sebelumnya pada role admin terdapat fitur fitur yang baru ditambahkan dan mengalami error saat kami melakukan demo dengan stakeholder seperti fitur supplier yang tidak terhubung dengan database, dan lain lain
-
-
----
-
-- ### Melakukan Testing Dengan Mitra
-  Minggu ini kami melakukan testing bersama dengan mitra dimana sempat terjadi error pada fitur yang belum kami selesaikan. Dari pihak mitra meminta untuk menambahkan beberapa perubahan pada beberapa fitur yang mana dirasa kurang sesuai dengan yang dibutuhkan
+  #### a. fitur import purchase pembelian dari excel
+  #### a. fitur purchase pembelian (masih bug saat penembahan pembelian manual)
+  #### a. fitur Obat Kadaluarsa (masih gagal membaca data backend)
+  
 
 ---
-
-## Test Case
-| ID Test Case | Deskripsi                         | Langkah Uji                                                                 | Data Uji                        | Output Diharapkan                        | Hasil Aktual | Status |
-|--------------|-----------------------------------|-----------------------------------------------------------------------------|----------------------------------|-------------------------------------------|---------------|--------|
-| 1        | Menambahkan Category           | 1. Buka halaman Categories <br> 2. Tekan tombol Add Category <br> 3. Ketik nama kategori baru <br> 4. Tekan tombol Save Change | Vitamin <br> | Data Category baru dapat masuk ke dalam database dan muncul pada tabel            | Sesuai       | Pass   |
-| 2        |  Menambahkan Supplier       | 1. Buka halaman supplier <br> 2. Tekan tombol Add New <br> 3. Isi data dari suuplier yang diperlukan <br> 4. Tekan submit  | Name: Ican CodeWW <br> Email: mahasiswaSI@itk.ac.id <br> Phone: 085433535365 <br> Company: SukaTani.net <br> Address: jl sadaw <br> product: Vitamin <br> Comment: Apa aja yang penting ok | Data supplier baru ditambahkan dalam tabel dan database        | Sesuai       | Pass   |
-| 3        | Melihat Sale Report         | 1. Buka halaman sale report pada dropdown Report <br> 2. Klik tombol “Generate Report” <br> 3. Isi tanggal awal hingga akhir yang ingin dicek <br> 4. Klik Submit | From: 01/04/2025 <br> To: 02/05/2025 | Menampilkan data penjualan dalam bentuk tabel   | Sesuai       | Pass   |
-
-
 
 ## Challenges & Solutions
 - **Challenge 1**: Kurangnya partisipasi anggota lain dalam pengerjaan proyek
   - **Solution**: Mengerjakan sebisa mungkin dengan sumber daya manusia yang ada untuk menyelesaikan projek.
 
 ## Next Week Plan
-- Memperbaiki fitur yang sudah ada
-- Melakukan perbaikan UI
-- Melakukan Unit Test
-- Melakukan pengujuian dengan mitra
-
-## Contributions
-- **Adam Ibnu Ramadhan**: Mengerjakan perbaikan fitur sebelumnya
-- **Muhammad Bagas Setiawan**:  Mengerjakan fitur lanjutan
-- **Putu Ngurah Semara**: Mengubah tampilan pada beberapa halaman 
-- **Raisha Alika Irwandira**:  Menghubungi mitra
-- **Rendy Rifandi Kurnia**: Menghubungi mitra
-
-## Screenshoot
-### Fitur Supplier
-![alt text](IMG/Supplier.png)
-### Fitur Report
-![alt text](IMG/Sales.png)
-### Fitur Access Controll
-![alt text](IMG/Access%20Controll.png)
-### Fitur User
-![alt text](IMG/User.png)
-### Fitur Profile
-![alt text](IMG/Profile.png)
-### Fitur Setting
-![alt text](IMG/Setting.png)
-### Dokumentasi Bersama Mitra
-![alt text](IMG/DokumentasiMitra.jpeg)
-
-### test case
-- ### TC1
-  - ### Langkah 1 dan 2
-  ![alt text](IMG/cate.png)
-  - ### Langkah 3 dan 4
-  ![alt text](<IMG/Add Cate.png>)
-  - ### Hasil
-  ![alt text](IMG/hasilTC1.png)
-
-
-- ### TC2
-  - ### Langkah 1 dan 2
-  ![alt text](IMG/supp.png)
-  - ### Langkah 3 dan 4
-  ![alt text](IMG/crtsupp.png)
-  - ### Hasil
-  ![alt text](IMG/hasilTC2.png)
-
-- ### TC3 
-  - ### Langkah 1 dan 2
-  ![alt text](IMG/Report.png)
-  - ### Langkah 3 dan 4
-  ![alt text](IMG/addrept.png)
-  - ### Hasil
-  ![alt text](IMG/hasilTC3.png)
+- Menyelesaikan bug dan mengatasinya
+- Melakukan pengujian usability ke 3 user
+- Melakukan testing akhir ke mitra
