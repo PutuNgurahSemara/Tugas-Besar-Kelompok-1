@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root { /* Light Mode Defaults */
+    --background: 0 0% 100%; /* White */
+    --foreground: 222.2 84% 4.9%; /* Dark Gray */
+    /* ... variabel warna shadcn/ui lainnya ... */
+    --primary: 142.1 76.2% 36.3%; /* Contoh: Hijau hsl(142.1, 76.2%, 36.3%) */
+    --primary-foreground: 0 0% 100%; /* Putih untuk teks di atas primary */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark { /* Dark Mode Overrides */
+    --background: 222.2 84% 4.9%; /* Dark Gray */
+    --foreground: 210 40% 98%;   /* Hampir Putih */
+     /* ... variabel warna shadcn/ui lainnya untuk dark mode ... */
+    --primary: 142.1 70.2% 46.3%; /* Contoh: Hijau lebih terang untuk dark mode */
+    --primary-foreground: 210 40% 98%; /* Hampir Putih */
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    /* --radius: 0.5rem; /* Radius biasanya sama */
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground;
+    /* Pastikan font-feature-settings diterapkan jika diperlukan oleh font */
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  * {
+    @apply border-border;
+  }
+}
+
+/* Feather Icons - Mungkin tidak diperlukan jika Anda hanya menggunakan Lucide */
+/* .fe {
+  display: inline-block;
+  font-family: 'feather' !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.fe-money:before {
+  content: "\e923";
+}
+
+.fe-folder:before {
+  content: "\e92f";
+}
+
+.fe-users:before {
+  content: "\e972";
+} */
+
+/* Hapus Custom Styles dan Table Styles */
+/* body {
+  @apply bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+} */
+
+/* .table-auto th,
+.table-auto td {
+  @apply px-4 py-2;
+}
+
+.table-auto th {
+  @apply bg-gray-200 dark:bg-gray-700 text-left font-semibold;
+}
+
+.table-auto tbody tr {
+  @apply border-b dark:border-gray-700;
+}
+
+.table-auto tbody tr:hover {
+  @apply bg-gray-100 dark:bg-gray-600;
+} */
