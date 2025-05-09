@@ -49,3 +49,14 @@
 - **Rendy Rifandi Kurnia**: Menghubungi mitra
 
 ## Screenshoot
+### Pie Chart Stats Penjualan
+![alt text](IMG/LPJ.png)
+### Perubahan Tampilan Sistem
+- #### Login
+![alt text](IMG/LoginN.png)
+- #### Dashboard
+![alt text](IMG/dashboardN.png)
+- #### Kategori
+![alt text](IMG/KategoriN.png)
+- #### Transaksi
+![alt text](IMG/TransaksiN.png)
