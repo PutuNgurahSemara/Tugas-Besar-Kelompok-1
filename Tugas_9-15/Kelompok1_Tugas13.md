@@ -22,15 +22,74 @@
 
 ---
 
-- ### Perbaikan dan penambahan fitur
+### Memperbarui Tampilan 
 
-    Pada minggu ini berhasil menyelesaikan fitur tambahan pada role admin seperti adanya pie chart dalam statistik penjualan, perubahan pada sistem pelayanan pelanggan sehingga sekarang kasir bisa memasukkan 2 atau lebih barang selama sekali proses transaksi berlangsung.
+   Pada minggu ini, kami melakukan upaya perbaikan dan penyempurnaan tampilan antarmuka sistem agar terlihat lebih modern dan responsif. Salah satu langkah signifikan yang kami ambil adalah mengganti teknologi pengelolaan aset front-end yang sebelumnya menggunakan Laravel Mix menjadi Laravel Vite. Perubahan ini didasari oleh kebutuhan untuk meningkatkan efisiensi dalam proses pengembangan, mempercepat waktu build, serta memanfaatkan dukungan teknologi modern seperti React, Tailwind CSS, dan TypeScript secara lebih optimal. Laravel Vite menyediakan fitur hot module replacement (HMR) yang memungkinkan perubahan kode terlihat secara langsung tanpa perlu me-refresh halaman, sehingga sangat mempercepat proses iterasi desain dan pengujian antarmuka. Dengan beralih ke Laravel Vite, kami berharap pengalaman pengguna dan performa sistem dapat ditingkatkan secara signifikan, sejalan dengan tujuan kami untuk menghadirkan sistem yang modern, cepat, dan mudah dikembangkan ke depannya.
+
+   gambar pembaruan sistem:
+   
+   #### a. Login
+   ![alt text](IMG/login-new.png)
+   #### b. Dashboard
+   ![alt text](IMG/dashboard-new.png)
+   #### c. Kategori
+   ![alt text](IMG/kategori-new.png)
+   #### d. Pembelian
+   ![alt text](IMG/pembelian-new.png)
+   #### e. Gudang
+   ![alt text](IMG/gudang-new.png)
+   #### f. Produk
+   ![alt text](IMG/produk.png)
+   #### g. Riwayat Penjualan
+   ![alt text](IMG/riwayat-penjualan-new.png)
+   #### h. Supplier
+   ![alt text](IMG/supplier-new.png)
+   #### i. Laporan Penjualan
+   ![alt text](IMG/laporan-penjualan-new.png)
+   #### j. Laporan Pembelian
+   ![alt text](IMG/laporan-pembelian-new.png)
+   #### k. Hak Akses (pengguna)
+   ![alt text](IMG/hakaksespengguna-new.png)
+   #### l. Hak Akses (peran)
+   ![alt text](IMG/hakaksesperan-new.png)
+   #### m. Hak Akses (izin)
+   ![alt text](IMG/hakaksesizin-new.png)
+   #### n. Pengaturam Profile penguna
+   ![alt text](IMG/pengaturanprofile-new.png)
+   #### o. Pengaturan Aplikasi 
+   ![alt text](IMG/pengaturanaplikasi-new.png)
 ---
 
-- ### Perubahan tampilan sistem
-     Sebelumnya pada sistem yang kami kembangkan kami menggunakan framework laravel 8, namun karena beberapa alasan kami memutuskan untuk mengganti framework tersebut menjadi laravel 12 dan berhasil mengubahnya dengan baik.
+- ### Melengkapi Fitur Yang Ada Pada Role Admin dan Sales
+     
+     Pada minggu kemarin hasil dari testing bersama Mitra, ada beberapa hal yang perlu di lengkap dari fitur fitur yang ada yaitu:
 
+     a. Fitur Transaksi Penjualan
+     #### sebelum:
+    ![alt text](IMG/transaksi-penjualan.jpeg)
+     *hanya dapat memilih satu obat untuk setiap transaki (tidak dapat memeilih banyak obat dalam setiap transaksi)
+
+     #### sesudah:
+    ![alt text](IMG/transaksi-penjualan.png)
+     *setiap transaksi bisa memilih beberapa obat
+
+     b. Fitur Supplier
+     #### sebelum
+    ![alt text](IMG/purchase.jpeg)
+     *Belum ada kolom tanggal faktur, dan tenggat pembayaran
+
+     #### sesudah:
+    ![alt text](IMG/purchase-new.png)
+     *Sudah ada detail dari setiap faktur yang dibeli seperti tanggal pembelian dan tenggat pembayaran
+
+     c. Penambahan Fitur Laporan Penjualan
+    ![alt text](IMG/laporan-pembelian.png)
+     sebelumnya hanya dapat melihat laporan pemjualan, dan sekarang menambhakan fitur laporan pembelian obat dari supplier dengan grafik.
 ---
+
+- ### Melakukan Testing Mandiri
+  Kami melakukan testing untuk mengecek performa dan fungsionalitas fitur dan menemukan bebrapa hal yang perlu di perbaiki diantaranya
+--- 
 
 ## Challenges & Solutions
 - **Challenge 1**: Kurangnya partisipasi anggota lain dalam pengerjaan proyek
@@ -48,15 +107,3 @@
 - **Raisha Alika Irwandira**:  Menghubungi mitra
 - **Rendy Rifandi Kurnia**: Menghubungi mitra
 
-## Screenshoot
-### Pie Chart Stats Penjualan
-![alt text](IMG/LPJ.png)
-### Perubahan Tampilan Sistem
-- #### Login
-![alt text](IMG/LoginN.png)
-- #### Dashboard
-![alt text](IMG/dashboardN.png)
-- #### Kategori
-![alt text](IMG/KategoriN.png)
-- #### Transaksi
-![alt text](IMG/TransaksiN.png)
