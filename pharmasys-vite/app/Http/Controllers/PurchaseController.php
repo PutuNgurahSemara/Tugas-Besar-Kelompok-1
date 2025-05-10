@@ -81,25 +81,66 @@ class PurchaseController extends Controller
         $total = collect($validated['details'])->sum('total');
         $validated['total'] = $total;
 
-        $purchase = Purchase::create($validated);
+        // Find supplier_id based on pbf
+        $supplier = Supplier::where('company', $validated['pbf'])->first();
 
-        foreach ($validated['details'] as $detail) {
-            $purchase->details()->create($detail);
+        if (!$supplier) {
+            // Handle case where supplier is not found
+            // For now, let's assume it should exist and throw an error or redirect back with error
+            return redirect()->back()->withInput()->withErrors(['pbf' => 'Supplier tidak ditemukan.']);
         }
 
-        return redirect()->route('purchases.index')->with('success', 'Pembelian berhasil dicatat.');
+        $purchaseData = $validated;
+        $purchaseData['supplier_id'] = $supplier->id;
+
+        DB::beginTransaction();
+        try {
+            $purchase = Purchase::create($purchaseData);
+
+            foreach ($validated['details'] as $detail) {
+                // Ensure produk_id is null if not provided, or handle linking existing products if necessary
+                $detailData = $detail;
+                if (!isset($detailData['produk_id'])) {
+                    // If you have a system to link to existing Produk by name, you could do it here.
+                    // For now, assuming produk_id is not part of this specific form's direct input for new purchases.
+                    // It's fillable in PurchaseDetail, so it might be set in other contexts or if 'nama_produk' implies an existing one.
+                }
+                $purchase->details()->create($detailData);
+            }
+
+            DB::commit();
+            return redirect()->route('purchases.index')->with('success', 'Pembelian berhasil dicatat.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error creating purchase: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            // Return with a more generic error, or a specific one if appropriate
+            // The original error message was "Gagal menyimpan pembelian. Mohon cek data Anda."
+            return redirect()->back()->withInput()->withErrors(['general' => 'Terjadi kesalahan saat menyimpan pembelian. Silakan coba lagi. Jika masalah berlanjut, hubungi administrator. Error: ' . $e->getMessage()]);
+        }
     }
 
     public function edit(Purchase $purchase)
     {
         $categories = Category::orderBy('name')->get(['id', 'name']);
         $suppliers = Supplier::orderBy('company')->get(['id', 'company']);
+
+        // Eager load details for the purchase object to be used in the view
+        $purchase->load('details');
+
+        // Calculate the total quantity initially in this purchase
+        $totalInitialQuantity = $purchase->details->sum('jumlah');
+
+        // Calculate how much quantity from this purchase's details has been "used"
+        // (i.e., associated with a Produk entry by having produk_id set)
+        $usedQuantity = $purchase->details->whereNotNull('produk_id')->sum('jumlah');
         
-        // Hitung jumlah produk yang sudah digunakan dari purchase ini menggunakan jumlah bukan quantity
-        $usedQuantity = Produk::whereHas('purchaseDetails', function($query) use ($purchase) {
-            $query->where('purchase_id', $purchase->id);
-        })->sum('purchase_details.jumlah');
-        
+        // Calculate remaining quantity
+        $remainingQuantity = $totalInitialQuantity - $usedQuantity;
+
         // Dapatkan daftar produk yang sudah ada untuk autocomplete
         $existingProducts = Produk::select('nama')
                             ->distinct()
@@ -110,9 +151,10 @@ class PurchaseController extends Controller
             'purchase' => $purchase,
             'categories' => $categories,
             'suppliers' => $suppliers,
-            'usedQuantity' => $usedQuantity,
+            'usedQuantity' => (int)$usedQuantity, // Cast to int for consistency
             'existingProducts' => $existingProducts,
-            'remainingQuantity' => (int)$purchase->quantity - (int)$usedQuantity,
+            'remainingQuantity' => (int)$remainingQuantity, // Cast to int
+            'totalInitialQuantity' => (int)$totalInitialQuantity // Also provide total initial quantity
         ]);
     }
 
@@ -665,11 +707,14 @@ class PurchaseController extends Controller
 
     public function purchasedProducts()
     {
+        $existingProdukNames = Produk::pluck('nama')->unique()->toArray();
+
         // Get all purchase details with product information
         $purchaseDetails = PurchaseDetail::with(['purchase.supplier'])
             ->select([
                 'id',
                 'purchase_id',
+                'produk_id', // Include produk_id to know if this batch is directly linked
                 'nama_produk',
                 'expired',
                 'jumlah',
@@ -677,11 +722,11 @@ class PurchaseController extends Controller
                 'harga_satuan',
                 'total'
             ])
-            ->orderBy('expired')
-            ->get()
-            ->map(function ($detail) {
-                return [
-                    'id' => $detail->id,
+        ->orderBy('expired')
+        ->get()
+        ->map(function ($detail) use ($existingProdukNames) { // Added: use ($existingProdukNames)
+            return [
+                'id' => $detail->id,
                     'nama_produk' => $detail->nama_produk,
                     'supplier' => $detail->purchase->supplier->company ?? 'Unknown',
                     'expired' => $detail->expired ? $detail->expired->format('Y-m-d') : null,
@@ -689,12 +734,14 @@ class PurchaseController extends Controller
                     'kemasan' => $detail->kemasan,
                     'harga_satuan' => $detail->harga_satuan,
                     'total' => $detail->total,
-                    'purchase_no' => $detail->purchase->no_faktur ?? 'Unknown',
-                    'purchase_date' => $detail->purchase->created_at->format('Y-m-d'),
-                ];
-            });
+                'purchase_no' => $detail->purchase->no_faktur ?? 'Unknown',
+                'purchase_date' => $detail->purchase->created_at->format('Y-m-d'),
+                'is_listed_as_product' => in_array($detail->nama_produk, $existingProdukNames),
+                'is_directly_linked_to_product' => !is_null($detail->produk_id),
+            ];
+        });
 
-        return Inertia::render('Purchases/Products', [
+        return Inertia::render('Purchases/Products', [ // Assuming view is Purchases/Products.tsx
             'purchaseDetails' => $purchaseDetails
         ]);
     }

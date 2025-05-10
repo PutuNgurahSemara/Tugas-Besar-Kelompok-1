@@ -93,78 +93,117 @@ class ProdukController extends Controller
             ];
         });
         
+        $existingProductNames = Produk::pluck('nama')->unique()->toArray();
+
         return Inertia::render('Produk/Create', [
             'categories' => $categories,
-            'availablePurchaseDetails' => $availablePurchaseDetails
+            'availablePurchaseDetails' => $availablePurchaseDetails,
+            'existingProductNames' => $existingProductNames
         ]);
     }
 
     public function store(Request $request)
     {
+        if ($request->input('category_id') === '_none') {
+            $request->merge(['category_id' => null]);
+        }
+
         $validated = $request->validate([
-            'nama' => 'required|string|max:50',
+            'nama' => 'required|string|max:50', // This will be set based on custom_nama or purchaseDetail name
             'custom_nama' => 'nullable|string|max:50',
-            'harga' => 'required|integer|min:0',
+            // 'harga' => 'required|integer|min:0', // Harga will be calculated
             'margin' => 'nullable|numeric|min:0|max:100',
             'category_id' => 'nullable|exists:categories,id',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'purchase_detail_id' => 'required|exists:purchase_details,id',
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|integer|min:1', // This is the quantity to take from the purchase_detail for this new product
         ]);
 
-        // Get the selected purchase detail
-        $purchaseDetail = PurchaseDetail::findOrFail($validated['purchase_detail_id']);
+        // Get the selected purchase detail (source batch)
+        $sourcePurchaseDetail = PurchaseDetail::findOrFail($validated['purchase_detail_id']);
         
-        // Validate that the requested quantity doesn't exceed available quantity
-        if ($validated['quantity'] > $purchaseDetail->jumlah) {
+        // Validate that the requested quantity doesn't exceed available quantity in the source purchase detail
+        if ($validated['quantity'] > $sourcePurchaseDetail->jumlah) {
             throw ValidationException::withMessages([
-                'quantity' => 'Jumlah melebihi stok pembelian yang tersedia. Maksimum yang diizinkan: ' . $purchaseDetail->jumlah,
+                'quantity' => 'Jumlah melebihi stok pembelian yang tersedia. Maksimum yang diizinkan: ' . $sourcePurchaseDetail->jumlah,
             ]);
         }
         
-        // Use custom name if provided, otherwise use the purchase detail product name
-        if (!empty($validated['custom_nama'])) {
-            $validated['nama'] = $validated['custom_nama'];
-        } elseif (!empty($purchaseDetail->nama_produk)) {
-            $validated['nama'] = $purchaseDetail->nama_produk;
-        }
-        
-        // Set category from purchase detail if not provided
-        if (empty($validated['category_id']) && $purchaseDetail->purchase->category_id) {
-            $validated['category_id'] = $purchaseDetail->purchase->category_id;
-        }
-        
-        // Remove fields not in the Produk model
-        unset($validated['custom_nama']);
-        unset($validated['purchase_detail_id']);
-        $quantity = $validated['quantity']; // Save quantity before unsetting
-        unset($validated['quantity']);
+        $finalProductName = !empty($validated['custom_nama']) ? $validated['custom_nama'] : $sourcePurchaseDetail->nama_produk;
 
-        // Handle image upload
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('produk_images', 'public');
+        DB::beginTransaction();
+        try {
+            $produk = Produk::where('nama', $finalProductName)->first();
+            $isNewProduct = !$produk;
+
+            if ($isNewProduct) {
+                // Creating a new product
+                $costPrice = $sourcePurchaseDetail->harga_satuan;
+                $marginPercentage = $validated['margin'] ?? 0;
+                $sellingPrice = round($costPrice * (1 + $marginPercentage / 100));
+
+                $productDataForCreate = [
+                    'nama' => $finalProductName,
+                    'harga' => $sellingPrice,
+                    'margin' => $marginPercentage,
+                    'category_id' => $validated['category_id'] ?? null,
+                    'image' => null,
+                ];
+                if ($request->hasFile('image')) {
+                    $productDataForCreate['image'] = $request->file('image')->store('produk_images', 'public');
+                }
+                $produk = Produk::create($productDataForCreate);
+            } else {
+                // Restocking an existing product. We use the existing $produk.
+                // We do not update its name, category, margin, image, or harga from this form.
+                // These are managed via the "Edit Product" page.
+            }
+            
+            $batchQuantity = $validated['quantity']; 
+
+            // Reduce quantity from the source purchase detail
+            $sourcePurchaseDetail->jumlah -= $batchQuantity;
+            if ($sourcePurchaseDetail->jumlah > 0) {
+                $sourcePurchaseDetail->save();
+            } else {
+                // If source is depleted, delete it.
+                // This assumes source details with produk_id=NULL are pure warehouse stock.
+                $sourcePurchaseDetail->delete();
+            }
+            
+            // Create a new PurchaseDetail record for this batch, linked to the product
+            $newProductBatch = new PurchaseDetail();
+            $newProductBatch->purchase_id = $sourcePurchaseDetail->purchase_id;
+            $newProductBatch->produk_id = $produk->id;
+            $newProductBatch->nama_produk = $produk->nama; // Use the product's name
+            $newProductBatch->expired = $sourcePurchaseDetail->expired;
+            $newProductBatch->jumlah = $batchQuantity;
+            $newProductBatch->kemasan = $sourcePurchaseDetail->kemasan;
+            $newProductBatch->harga_satuan = $sourcePurchaseDetail->harga_satuan; // Cost for this batch
+            $newProductBatch->total = $sourcePurchaseDetail->harga_satuan * $batchQuantity; // Total cost for this batch
+            $newProductBatch->save();
+
+            DB::commit();
+
+            $successMessage = sprintf(
+                'Produk %s %s dengan stok %d. %s',
+                $produk->nama,
+                $isNewProduct ? 'berhasil dibuat' : 'berhasil direstok',
+                $batchQuantity,
+                $newProductBatch->expired ? 'Tanggal kadaluwarsa: ' . Carbon::parse($newProductBatch->expired)->format('d/m/Y') : 'Tidak ada tanggal kadaluwarsa'
+            );
+
+            return redirect()->route('produk.index')->with('success', $successMessage);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error in ProdukController@store: ' . $e->getMessage() . ' Stack: ' . $e->getTraceAsString());
+            return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
-
-        // Create the product
-        $produk = Produk::create($validated);
-        
-        // Update the purchase detail to link it to this product and reduce available quantity
-        $purchaseDetail->produk_id = $produk->id;
-        $purchaseDetail->jumlah = $purchaseDetail->jumlah - $quantity;
-        $purchaseDetail->save();
-        
-        // Create a new purchase detail for the product with the requested quantity
-        $newDetail = $purchaseDetail->replicate();
-        $newDetail->produk_id = $produk->id;
-        $newDetail->jumlah = $quantity;
-        $newDetail->save();
-
-        // Format the success message with quantity and expiry date
         $successMessage = sprintf(
             'Produk %s berhasil dibuat dengan stok awal %d. %s',
             $produk->nama,
-            $quantity,
-            $purchaseDetail->expired ? 'Tanggal kadaluarsa: ' . $purchaseDetail->expired->format('d/m/Y') : 'Tidak ada tanggal kadaluarsa'
+            $batchQuantity, // Use batchQuantity for the message
+            $newDetail->expired ? 'Tanggal kadaluwarsa: ' . Carbon::parse($newDetail->expired)->format('d/m/Y') : 'Tidak ada tanggal kadaluwarsa'
         );
 
         return redirect()->route('produk.index')->with('success', $successMessage);
@@ -231,6 +270,10 @@ class ProdukController extends Controller
         // Start database transaction
         DB::beginTransaction();
         try {
+            if ($request->input('category_id') === '_none') {
+                $request->merge(['category_id' => null]);
+            }
+
             $validated = $request->validate([
                 'nama' => 'required|string|max:50',
                 'custom_nama' => 'nullable|string|max:50',
@@ -438,11 +481,25 @@ class ProdukController extends Controller
                     }),
                 ];
             });
+
+        // Determine the single earliest expiry date for simple display
+        $earliestExpiryDate = null;
+        if ($produk->purchaseDetails->isNotEmpty()) {
+            $earliestDetail = $produk->purchaseDetails
+                ->whereNotNull('expired')
+                ->filter(fn($detail) => $detail->jumlah > 0) // Consider only details with stock
+                ->sortBy('expired')
+                ->first();
+            if ($earliestDetail) {
+                $earliestExpiryDate = $earliestDetail->expired; // Carbon instance or null
+            }
+        }
         
         return Inertia::render('Produk/Show', [
             'produk' => $produk,
             'totalStock' => $totalStock,
-            'stockByExpiry' => $stockByExpiry,
+            'stockByExpiry' => $stockByExpiry, // For detailed breakdown if needed
+            'earliestExpiryDate' => $earliestExpiryDate ? $earliestExpiryDate->toISOString() : null, // Pass as ISO string
         ]);
     }
 

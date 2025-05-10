@@ -10,13 +10,13 @@ interface Category {
     name: string;
 }
 
-interface Produk {
+interface Produk { // This is the base product model structure
     id: number;
     nama: string;
     harga: number;
-    quantity: number;
+    // quantity: number; // Stock will come from totalStock prop
     margin?: number;
-    expired_at?: string;
+    // expired_at?: string; // Expiry will come from earliestExpiryDate prop
     category_id?: number;
     category?: Category;
     image?: string;
@@ -26,9 +26,12 @@ interface Produk {
 
 interface ProdukShowProps {
     produk: Produk;
+    totalStock: number;
+    earliestExpiryDate: string | null;
+    // stockByExpiry is also passed but not used in this specific part of the UI
 }
 
-export default function ProdukShow({ produk }: ProdukShowProps) {
+export default function ProdukShow({ produk, totalStock, earliestExpiryDate }: ProdukShowProps) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: route('dashboard') },
         { title: 'Products', href: route('produk.index') },
@@ -42,7 +45,7 @@ export default function ProdukShow({ produk }: ProdukShowProps) {
                 <h2 className="text-2xl font-bold">Detail Produk</h2>
                 <div className="space-x-2">
                     <Link href={route('produk.edit', produk.id)}>
-                        <Button variant="outline">Edit Produk</Button>
+                        <Button variant="secondary">Edit Produk</Button>
                     </Link>
                     <Link href={route('produk.index')}>
                         <Button variant="ghost">Kembali</Button>
@@ -71,7 +74,7 @@ export default function ProdukShow({ produk }: ProdukShowProps) {
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Stok</p>
-                                <p className="font-medium">{produk.quantity}</p>
+                                <p className="font-medium">{totalStock ?? '0'}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">Margin</p>
@@ -80,8 +83,8 @@ export default function ProdukShow({ produk }: ProdukShowProps) {
                             <div>
                                 <p className="text-sm text-muted-foreground">Tanggal Kedaluwarsa</p>
                                 <p className="font-medium">
-                                    {produk.expired_at 
-                                        ? format(new Date(produk.expired_at), 'dd MMM yyyy')
+                                    {earliestExpiryDate 
+                                        ? format(new Date(earliestExpiryDate), 'dd MMM yyyy')
                                         : '-'}
                                 </p>
                             </div>
@@ -122,4 +125,4 @@ export default function ProdukShow({ produk }: ProdukShowProps) {
             </div>
         </AppLayout>
     );
-} 
+}

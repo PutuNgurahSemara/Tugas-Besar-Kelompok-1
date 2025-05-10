@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type Category } from '@/types';
 import { type PageProps } from '@/types/inertia';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/react'; // Added router
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,13 +19,13 @@ interface Produk {
     nama: string;
     category_id: number | null;
     harga: number;
-    quantity: number;
+    // quantity: number; // Not directly edited here, derived from batches
     margin: number | null;
-    expired_at: string | null;
+    // expired_at: string | null; // Not directly edited here, derived from batches
     image: string | null;
 }
 
-// Tambahkan interface untuk purchase
+// This Purchase interface might be unused now if purchase source selection is fully removed
 interface Purchase {
     id: number;
     product: string;
@@ -38,102 +38,75 @@ interface Purchase {
 interface ProdukEditProps extends PageProps {
     produk: Produk & { 
         category: Category | null;
-        purchase: Purchase | null;
     };
     categories: Category[];
-    availablePurchases: Purchase[];
-    [key: string]: any; // Add index signature
+    [key: string]: any; 
 }
 
 type FormData = {
     nama: string;
     custom_nama: string;
-    purchase_id: string;
     category_id: string | null;
     harga: string;
-    quantity: number;
     margin: string;
-    expired_at: string;
     image: File | null;
     _method: string;
 }
 
 export default function ProdukEdit() {
-    const { produk, categories, availablePurchases } = usePage<ProdukEditProps>().props;
+    const { produk, categories } = usePage<ProdukEditProps>().props;
     const [preview, setPreview] = useState<string | null>(produk.image ? `/storage/${produk.image}` : null);
-    const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(produk.purchase);
-    const [maxQuantity, setMaxQuantity] = useState<number>(
-        produk.purchase ? 
-        produk.purchase.available_quantity + produk.quantity : 
-        Infinity
-    );
     const [useCustomName, setUseCustomName] = useState<boolean>(false);
     
     const { data, setData, post, errors, processing, progress } = useForm<FormData>({
         nama: produk.nama || '',
         custom_nama: '', 
-        purchase_id: produk.purchase?.id ? String(produk.purchase.id) : '',
         category_id: produk.category_id ? String(produk.category_id) : null,
         harga: produk.harga ? String(produk.harga) : '',
-        quantity: produk.quantity || 0,
         margin: produk.margin !== null ? String(produk.margin) : '',
-        expired_at: produk.expired_at || '',
         image: null,
         _method: 'PUT'
     });
 
-    // Update data ketika purchase dipilih
     useEffect(() => {
-        if (selectedPurchase) {
-            // Hitung jumlah maksimum yang diperbolehkan (jumlah tersedia + jumlah produk saat ini)
-            setMaxQuantity(
-                selectedPurchase.id === produk.purchase?.id ? 
-                selectedPurchase.available_quantity + produk.quantity : 
-                selectedPurchase.available_quantity
-            );
-            
-            // Jika bukan purchase yang sama dengan produk saat ini, reset nama produk
-            if (selectedPurchase.id !== produk.purchase?.id) {
-                setData('nama', selectedPurchase.product);
-            }
-            
-            // Isi tanggal expired jika tersedia dan belum diisi
-            if (selectedPurchase.expiry_date && !data.expired_at) {
-                setData('expired_at', selectedPurchase.expiry_date);
-            }
-            
-            // Hitung harga jual default jika margin berubah
-            if (selectedPurchase.cost_price && data.margin) {
-                const marginPercent = parseFloat(data.margin);
-                const sellingPrice = selectedPurchase.cost_price * (1 + (marginPercent / 100));
-                setData('harga', Math.round(sellingPrice).toString());
-            }
-        } else {
-            // Jika tidak ada purchase yang dipilih, tidak ada batasan jumlah
-            setMaxQuantity(Infinity);
-        }
-    }, [selectedPurchase]);
+        // This useEffect is kept from the previous state; its original problematic logic 
+        // (related to produk.purchase) was removed.
+        // If specific initialization logic for `useCustomName` or `data.custom_nama` is needed
+        // based on `produk.nama` alone, it can be added here carefully.
+    }, []);
 
-    // Update harga ketika margin berubah
-    useEffect(() => {
-        if (selectedPurchase?.cost_price && data.margin) {
-            const marginPercent = parseFloat(data.margin);
-            const sellingPrice = selectedPurchase.cost_price * (1 + (marginPercent / 100));
-            setData('harga', Math.round(sellingPrice).toString());
-        }
-    }, [data.margin]);
-
-    function submit(e: React.FormEvent<HTMLFormElement>) {
+    // The old 'submit' function is dead code as handleFormSubmit is used.
+    // function submit(e: React.FormEvent<HTMLFormElement>) { ... } 
+    
+    const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        
-        // Validasi sebelum submit
-        if (selectedPurchase && data.quantity > maxQuantity) {
-            alert(`Jumlah tidak boleh melebihi ${maxQuantity}`);
-            return;
+        const finalFormData = new (window as any).FormData();
+        finalFormData.append('_method', 'PUT');
+        finalFormData.append('nama', useCustomName && data.custom_nama ? data.custom_nama : data.nama);
+        if (data.category_id) {
+            finalFormData.append('category_id', data.category_id);
+        } else {
+            finalFormData.append('category_id', ''); // Send empty string for null
         }
-        
-        post(route('produk.update', produk.id));
-    }
+        finalFormData.append('harga', data.harga);
+        finalFormData.append('margin', data.margin);
+        if (data.image) {
+            finalFormData.append('image', data.image);
+        }
+        if (useCustomName && data.custom_nama) { 
+            finalFormData.append('custom_nama', data.custom_nama);
+        }
+
+        router.post(route('produk.update', produk.id), finalFormData, {
+            forceFormData: true, 
+            onSuccess: () => {
+                // Handle success (e.g., show alert, redirect)
+            },
+            onError: (formErrors: Record<string, string>) => {
+                // Handle errors (e.g., display them using 'errors' from useForm or a state variable)
+            }
+        });
+    };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -146,21 +119,6 @@ export default function ProdukEdit() {
         }
     };
     
-    const handlePurchaseSelect = (purchaseId: string) => {
-        const purchase = availablePurchases.find(p => p.id.toString() === purchaseId);
-        setData('purchase_id', purchaseId);
-        setSelectedPurchase(purchase || null);
-    };
-    
-    // Check if product name is custom (different from purchase product name)
-    useEffect(() => {
-        if (produk.purchase && produk.nama !== produk.purchase.product) {
-            setUseCustomName(true);
-            setData('custom_nama', produk.nama);
-        }
-    }, []);
-    
-    // Buat breadcrumbs
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: route('dashboard') },
         { title: 'Products', href: route('produk.index') },
@@ -180,43 +138,23 @@ export default function ProdukEdit() {
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>Informasi</AlertTitle>
                         <AlertDescription>
-                            Produk yang diedit harus sesuai dengan data purchase. Jumlah produk tidak boleh melebihi jumlah pada purchase.
+                            Update product details below. Stock and expiry are managed via purchases.
                         </AlertDescription>
                     </Alert>
                     
-                    <form onSubmit={submit} className="space-y-6">
+                    <form onSubmit={handleFormSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Kolom Kiri */}
                             <div className="space-y-4">
                                 <div>
-                                    <Label htmlFor="purchase_id">Purchase (Source)</Label>
-                                    <Select 
-                                        value={data.purchase_id ? String(data.purchase_id) : ""}
-                                        onValueChange={handlePurchaseSelect}
-                                    >
-                                        <SelectTrigger className="mt-1 block w-full">
-                                            <SelectValue placeholder="Select purchase source" />
-                                        </SelectTrigger>
-                                        <SelectContent className="max-h-80 overflow-y-auto">
-                                            {(availablePurchases || []).map((purchase) => (
-                                                <SelectItem key={purchase.id} value={String(purchase.id)}>
-                                                    {purchase.product} (Available: {purchase.available_quantity})
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <InputError message={errors.purchase_id} className="mt-2" />
-                                </div>
-                                
-                                <div>
-                                    <Label htmlFor="nama">Product Name from Purchase</Label>
+                                    <Label htmlFor="current_nama">Product Name</Label>
                                     <Input
-                                        id="nama"
-                                        name="nama"
-                                        value={data.nama}
+                                        id="current_nama"
+                                        name="current_nama"
+                                        value={data.nama} 
                                         onChange={(e) => setData('nama', e.target.value)}
                                         className="mt-1 block w-full"
-                                        disabled={true}
+                                        disabled={useCustomName} 
                                     />
                                     <InputError message={errors.nama} className="mt-2" />
                                 </div>
@@ -226,7 +164,14 @@ export default function ProdukEdit() {
                                         type="checkbox" 
                                         id="useCustomName" 
                                         checked={useCustomName}
-                                        onChange={(e) => setUseCustomName(e.target.checked)} 
+                                        onChange={(e) => {
+                                            setUseCustomName(e.target.checked);
+                                            if (!e.target.checked) {
+                                                setData('custom_nama', ''); 
+                                            } else {
+                                                setData('custom_nama', data.nama); 
+                                            }
+                                        }} 
                                     />
                                     <Label htmlFor="useCustomName" className="cursor-pointer">
                                         Gunakan nama produk custom
@@ -252,8 +197,8 @@ export default function ProdukEdit() {
                                     <Label htmlFor="category_id">Category</Label>
                                     <Select 
                                         name="category_id"
-                                        value={data.category_id || 'null'} 
-                                        onValueChange={(value) => setData('category_id', value === 'null' ? null : value)}
+                                        value={data.category_id || '_none'} 
+                                        onValueChange={(value) => setData('category_id', value === '_none' ? null : value)}
                                     >
                                         <SelectTrigger className="mt-1 block w-full">
                                             <SelectValue placeholder="Select a category" />
@@ -288,28 +233,6 @@ export default function ProdukEdit() {
                                     <InputError message={errors.harga} className="mt-2" />
                                 </div>
                                 <div>
-                                    <Label htmlFor="quantity">Quantity * {selectedPurchase && `(Max: ${maxQuantity})`}</Label>
-                                    <Input
-                                        id="quantity"
-                                        name="quantity"
-                                        type="number"
-                                        value={data.quantity}
-                                        onChange={(e) => {
-                                            const value = parseInt(e.target.value) || 0;
-                                            setData('quantity', value);
-                                        }}
-                                        className={`mt-1 block w-full ${selectedPurchase && data.quantity > maxQuantity ? 'border-red-500' : ''}`}
-                                        required
-                                        min="0"
-                                    />
-                                    {selectedPurchase && data.quantity > maxQuantity && (
-                                        <p className="text-sm text-red-500 mt-1">
-                                            Jumlah tidak boleh melebihi {maxQuantity}
-                                        </p>
-                                    )}
-                                    <InputError message={errors.quantity} className="mt-2" />
-                                </div>
-                                <div>
                                     <Label htmlFor="margin">Margin (%)</Label>
                                     <Input
                                         id="margin"
@@ -322,18 +245,8 @@ export default function ProdukEdit() {
                                     />
                                     <InputError message={errors.margin} className="mt-2" />
                                 </div>
-                                <div>
-                                    <Label htmlFor="expired_at">Expiry Date</Label>
-                                    <Input
-                                        id="expired_at"
-                                        name="expired_at"
-                                        type="date"
-                                        value={data.expired_at}
-                                        onChange={(e) => setData('expired_at', e.target.value)}
-                                        className="mt-1 block w-full"
-                                    />
-                                    <InputError message={errors.expired_at} className="mt-2" />
-                                </div>
+                                {/* Expiry Date field removed */}
+                                {/* Quantity field removed */}
                                 <div>
                                     <Label htmlFor="image">Product Image</Label>
                                     <Input
@@ -344,11 +257,9 @@ export default function ProdukEdit() {
                                         onChange={handleImageChange}
                                         className="mt-1 block w-full"
                                     />
-                                    {/* Tampilkan Progress Bar */} 
                                     {progress && (
                                         <Progress value={progress.percentage} className="w-full mt-2" />
                                     )}
-                                    {/* Tampilkan Preview */} 
                                     {preview && (
                                         <div className="mt-4">
                                             <img src={preview} alt="Preview" className="h-20 w-20 object-cover rounded" />
@@ -368,7 +279,7 @@ export default function ProdukEdit() {
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={Boolean(processing || (selectedPurchase && data.quantity > maxQuantity))}>
+                            <Button type="submit" disabled={processing}>
                                 {processing ? 'Saving...' : 'Update Product'}
                             </Button>
                         </div>

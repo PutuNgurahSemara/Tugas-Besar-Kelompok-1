@@ -37,16 +37,16 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function PurchaseCreate() {
-    const { categories, suppliers } = usePage<PurchaseCreateProps>().props;
+    const { categories, suppliers, errors: pageErrors } = usePage<PurchaseCreateProps>().props;
     // State untuk header
     const [header, setHeader] = useState({
         no_faktur: '',
         pbf: '',
         tanggal_faktur: '',
         jatuh_tempo: '',
-        jumlah: '',
-        total: '',
-        tanggal_pembayaran: '',
+        // jumlah: '', // Will be derived from details.length for submission
+        // total: '', // Will be calculated server-side or derived for display
+        tanggal_pembayaran: '', // This is now handled by the separate tanggalPembayaran state
         keterangan: '',
         supplier_id: '',
     });
@@ -68,8 +68,8 @@ export default function PurchaseCreate() {
     const [tanggalPembayaran, setTanggalPembayaran] = useState('');
     // Hitung jumlah produk otomatis
     const jumlahProduk = details.length;
-    // Hitung total otomatis
-    const total = details.reduce((sum, d) => sum + (parseFloat(d.total) || 0), 0);
+    // Hitung total otomatis for display purposes
+    const displayTotal = details.reduce((sum, d) => sum + (parseFloat(d.total) || 0), 0);
     // Jika tanggal pembayaran diisi, status otomatis 'PAID'
     useEffect(() => {
         if (tanggalPembayaran) setStatus('PAID');
@@ -126,22 +126,39 @@ export default function PurchaseCreate() {
         setProcessing(true);
         setAlert(null);
         const formData = {
-            ...header,
+            no_faktur: header.no_faktur,
+            pbf: header.pbf,
+            tanggal_faktur: header.tanggal_faktur,
+            jatuh_tempo: header.jatuh_tempo,
+            keterangan: header.keterangan,
+            supplier_id: header.supplier_id,
+            jumlah: details.length, // Correctly set the number of product types
+            tanggal_pembayaran: tanggalPembayaran || null, // Send tanggal_pembayaran from its own state
             details: details.map(detail => ({
                 ...detail,
                 jumlah: parseInt(detail.jumlah) || 0,
                 harga_satuan: parseFloat(detail.harga_satuan) || 0,
-                total: parseFloat(detail.total) || 0
-            }))
+                total: parseFloat(detail.total) || 0,
+            })),
         };
         
         router.post(route('purchases.store'), formData as any, {
             onSuccess: () => {
                 setAlert({ type: 'success', message: 'Pembelian berhasil disimpan!' });
                 setProcessing(false);
+                // Optionally reset form:
+                // setHeader({ no_faktur: '', pbf: '', tanggal_faktur: '', jatuh_tempo: '', keterangan: '', supplier_id: '' });
+                // setDetails([{ nama_produk: '', expired: '', jumlah: '', kemasan: '', harga_satuan: '', total: '' }]);
+                // setTanggalPembayaran('');
             },
-            onError: () => {
-                setAlert({ type: 'error', message: 'Gagal menyimpan pembelian. Mohon cek data Anda.' });
+            onError: (errors) => { // Capture errors from Inertia props
+                if (errors.general) {
+                    setAlert({ type: 'error', message: errors.general });
+                } else {
+                    // Concatenate other field-specific errors or show a generic one
+                    const errorMessages = Object.values(errors).join(' \n');
+                    setAlert({ type: 'error', message: errorMessages || 'Gagal menyimpan pembelian. Mohon cek data Anda.' });
+                }
                 setProcessing(false);
             },
         });
@@ -221,7 +238,7 @@ export default function PurchaseCreate() {
                                 </div>
                                 <div>
                                     <Label>Total</Label>
-                                    <div className="bg-gray-800 text-green-400 rounded px-3 py-2 font-bold">Rp. {total.toLocaleString('id-ID')}</div>
+                                    <div className="bg-gray-800 text-green-400 rounded px-3 py-2 font-bold">Rp. {displayTotal.toLocaleString('id-ID')}</div>
                                 </div>
                             </div>
                         </div>

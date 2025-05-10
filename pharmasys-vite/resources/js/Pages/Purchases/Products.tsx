@@ -15,6 +15,8 @@ interface PurchaseDetailProps {
     total: number;
     purchase_no: string;
     purchase_date: string;
+    is_listed_as_product: boolean;
+    is_directly_linked_to_product: boolean;
 }
 
 interface Props {
@@ -56,15 +58,40 @@ export default function Products({ purchaseDetails }: Props) {
                     <h1 className="text-2xl font-bold">Purchased Products</h1>
                 </div>
 
+                {purchaseDetails.length > 0 && (
+                    <div className="mb-4 p-4 bg-gray-800 text-white rounded-md shadow">
+                        {(() => {
+                            const totalItems = purchaseDetails.length;
+                            const itemsListedAsProduct = purchaseDetails.filter(d => d.is_listed_as_product).length;
+                            if (itemsListedAsProduct === totalItems) {
+                                return "All purchased items are currently listed as products.";
+                            }
+                            return `${itemsListedAsProduct} / ${totalItems} purchased items are listed as products.`;
+                        })()}
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {purchaseDetails.map((detail) => {
                         const daysUntilExpiry = getDaysUntilExpiry(detail.expired);
                         const expiryBadgeColor = getExpiryBadgeColor(daysUntilExpiry);
+                        const cardClasses = `hover:shadow-lg transition-shadow ${
+                            detail.is_listed_as_product ? 'border-2 border-green-500' : ''
+                        } ${detail.is_directly_linked_to_product && detail.jumlah === 0 ? 'opacity-60' : ''}`;
+
 
                         return (
-                            <Card key={detail.id} className="hover:shadow-lg transition-shadow">
+                            <Card key={detail.id} className={cardClasses}>
                                 <CardHeader>
-                                    <CardTitle className="text-lg">{detail.nama_produk}</CardTitle>
+                                    <CardTitle className="text-lg">
+                                        {detail.nama_produk}
+                                        {detail.is_listed_as_product && !detail.is_directly_linked_to_product && (
+                                            <Badge variant="outline" className="ml-2 bg-yellow-500 text-black">Name Match</Badge>
+                                        )}
+                                        {detail.is_directly_linked_to_product && (
+                                            <Badge variant="outline" className="ml-2 bg-green-500 text-white">Linked</Badge>
+                                        )}
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <ScrollArea className="h-[200px]">

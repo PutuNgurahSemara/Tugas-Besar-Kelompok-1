@@ -24,9 +24,9 @@ interface Produk {
     id: number;
     nama: string;
     harga: number;
-    quantity: number | null;
+    // quantity: number | null; // This seems to be a direct column, we'll use total_stock from controller
     margin: number | null;
-    expired_at: string | null;
+    // expired_at: string | null; // This seems to be a direct column, we'll use earliest_expiry from controller
     category_id: number | null;
     image: string | null;
     created_at: string;
@@ -35,6 +35,8 @@ interface Produk {
 
 interface ProdukWithRelations extends Produk {
     category: Category | null;
+    total_stock: number; // Added from controller
+    earliest_expiry: string | null; // Added from controller
 }
 
 interface ProdukIndexProps extends Record<string, unknown> {
@@ -153,27 +155,27 @@ export default function ProdukIndex() {
                             <TableRow key={product.id}>
                                 <TableCell>{product.nama}</TableCell>
                                 <TableCell>{product.category?.name || '-'}</TableCell>
-                                <TableCell>{product.quantity ?? '0'}</TableCell>
+                                <TableCell>{product.total_stock ?? '0'}</TableCell>
                                 <TableCell>Rp {product.harga.toLocaleString('id-ID')}</TableCell>
                                 <TableCell>
-                                    {product.expired_at ? (
+                                    {product.earliest_expiry ? (
                                         <div className="flex items-center">
                                             <span className={
-                                                new Date(product.expired_at) <= new Date() 
+                                                new Date(product.earliest_expiry) <= new Date() 
                                                     ? 'text-red-500 font-medium' 
-                                                    : new Date(product.expired_at) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
+                                                    : new Date(product.earliest_expiry) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
                                                         ? 'text-yellow-500 font-medium' 
                                                         : ''
                                             }>
-                                                {format(new Date(product.expired_at), 'dd MMM yyyy')}
+                                                {format(new Date(product.earliest_expiry), 'dd MMM yyyy')}
                                             </span>
-                                            {new Date(product.expired_at) <= new Date() && (
+                                            {new Date(product.earliest_expiry) <= new Date() && (
                                                 <span className="ml-2 bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">
                                                     Expired
                                                 </span>
                                             )}
-                                            {new Date(product.expired_at) > new Date() && 
-                                             new Date(product.expired_at) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
+                                            {new Date(product.earliest_expiry) > new Date() && 
+                                             new Date(product.earliest_expiry) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
                                                 <span className="ml-2 bg-yellow-100 text-yellow-600 text-xs px-2 py-0.5 rounded-full">
                                                     Expiring Soon
                                                 </span>

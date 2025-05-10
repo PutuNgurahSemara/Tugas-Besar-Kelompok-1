@@ -22,8 +22,19 @@ interface PurchaseEditProps {
     [key: string]: any;
 }
 
+interface DetailItem {
+    id?: number | null;
+    nama_produk: string;
+    expired: string;
+    jumlah: string;
+    kemasan: string;
+    harga_satuan: string;
+    total: string;
+    [key: string]: any; // Index signature for dynamic property access in handleDetailChange
+}
+
 export default function PurchaseEdit() {
-    const { purchase, categories, suppliers } = usePage<PurchaseEditProps>().props;
+    const { purchase, categories, suppliers, errors: pageErrors } = usePage<PurchaseEditProps>().props;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: route('dashboard') },
@@ -32,25 +43,37 @@ export default function PurchaseEdit() {
     ];
 
     const [preview, setPreview] = useState<string | null>(null);
+
+    const formatDateForInput = (dateString: string | null | undefined): string => {
+        if (!dateString) return '';
+        try {
+            return new Date(dateString).toISOString().split('T')[0];
+        } catch (e) {
+            console.error("Error formatting date:", dateString, e);
+            return ''; 
+        }
+    };
+
     const [header, setHeader] = useState({
         no_faktur: purchase.no_faktur || '',
-        pbf: purchase.pbf || '',
-        tanggal_faktur: purchase.tanggal_faktur || '',
-        jatuh_tempo: purchase.jatuh_tempo || '',
-        jumlah: purchase.jumlah || '',
-        total: purchase.total || '',
-        tanggal_pembayaran: purchase.tanggal_pembayaran || '',
+        pbf: purchase.pbf || '', // Assuming pbf (supplier name string) is what's needed for the Select
+        supplier_id: purchase.supplier_id || '', // Keep supplier_id if available/needed
+        tanggal_faktur: formatDateForInput(purchase.tanggal_faktur),
+        jatuh_tempo: formatDateForInput(purchase.jatuh_tempo),
+        jumlah: purchase.jumlah || '', // This should be the count of item types
+        // total: purchase.total || '', // Total is calculated or comes from backend
         keterangan: purchase.keterangan || '',
     });
     const [details, setDetails] = useState(
         purchase.details && purchase.details.length > 0
             ? purchase.details.map((d: any) => ({
+                id: d.id || null, // Keep track of existing detail IDs if needed for update
                 nama_produk: d.nama_produk || '',
-                expired: d.expired || '',
-                jumlah: d.jumlah || '',
+                expired: formatDateForInput(d.expired),
+                jumlah: d.jumlah?.toString() || '',
                 kemasan: d.kemasan || '',
-                harga_satuan: d.harga_satuan || '',
-                total: d.total || '',
+                harga_satuan: d.harga_satuan?.toString() || '',
+                total: d.total?.toString() || '',
             }))
             : [
                 {
@@ -64,21 +87,23 @@ export default function PurchaseEdit() {
             ]
     );
     const [processing, setProcessing] = useState(false);
-    const [tanggalPembayaran, setTanggalPembayaran] = useState(header.tanggal_pembayaran || '');
-    const [status, setStatus] = useState(purchase.status || 'UNPAID');
+    const [tanggalPembayaran, setTanggalPembayaran] = useState(formatDateForInput(purchase.tanggal_pembayaran));
+    const [status, setStatus] = useState(purchase.tanggal_pembayaran ? 'PAID' : 'UNPAID'); // Derive status from actual payment date
+
     const jumlahProduk = details.length;
-    const total = details.reduce((sum: number, d: any) => sum + (parseFloat(d.total) || 0), 0);
+    const displayTotal = details.reduce((sum: number, d: DetailItem) => sum + (parseFloat(d.total) || 0), 0);
     const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    const { data, setData, put, errors, processing: formProcessing } = useForm({
-        product: purchase.product || '',
-        category_id: purchase.category_id || '',
-        supplier_id: purchase.supplier_id || '',
-        cost_price: purchase.cost_price || '',
-        quantity: purchase.quantity || 1,
-        due_date: purchase.due_date || '',
-        status: purchase.status || 'UNPAID',
-    });
+    // This useForm hook seems unused for the main purchase form, consider removing if not needed.
+    // const { data, setData, put, errors, processing: formProcessing } = useForm({
+    //     product: purchase.product || '',
+    //     category_id: purchase.category_id || '',
+    //     supplier_id: purchase.supplier_id || '',
+    //     cost_price: purchase.cost_price || '',
+    //     quantity: purchase.quantity || 1,
+    //     due_date: purchase.due_date || '',
+    //     status: purchase.status || 'UNPAID',
+    // });
 
     useEffect(() => {
         if (tanggalPembayaran) setStatus('PAID');
@@ -89,13 +114,32 @@ export default function PurchaseEdit() {
         e.preventDefault();
         setProcessing(true);
         setAlert(null);
-        router.put(route('purchases.update', purchase.id), { ...header, details }, {
+
+        const payload = {
+            ...header, // no_faktur, pbf, supplier_id, tanggal_faktur, jatuh_tempo, keterangan
+            jumlah: details.length, // Ensure 'jumlah' (count of item types) is correct
+            tanggal_pembayaran: tanggalPembayaran || null, // Use the dedicated state, send null if empty
+            details: details.map((d: DetailItem) => ({
+                ...d,
+                jumlah: parseInt(d.jumlah) || 0,
+                harga_satuan: parseFloat(d.harga_satuan) || 0,
+                total: parseFloat(d.total) || 0,
+            })),
+            // total will be recalculated by backend
+        };
+
+        router.put(route('purchases.update', purchase.id), payload as any, {
             onSuccess: () => {
                 setAlert({ type: 'success', message: 'Pembelian berhasil diperbarui!' });
                 setProcessing(false);
             },
-            onError: (errors) => {
-                setAlert({ type: 'error', message: 'Gagal memperbarui pembelian. Mohon cek data Anda.' });
+            onError: (errors) => { // Use pageErrors from usePage
+                if (pageErrors.general) {
+                    setAlert({ type: 'error', message: pageErrors.general });
+                } else {
+                    const errorMessages = Object.values(pageErrors).join(' \n');
+                    setAlert({ type: 'error', message: errorMessages || 'Gagal memperbarui pembelian. Mohon cek data Anda.' });
+                }
                 setProcessing(false);
             },
         });
@@ -159,15 +203,22 @@ export default function PurchaseEdit() {
                                 <div>
                                     <Label htmlFor="pbf">Supplier (PBF)</Label>
                                     <Select
-                                        value={header.pbf}
-                                        onValueChange={val => setHeader({ ...header, pbf: val })}
+                                        value={header.supplier_id} // Bind to supplier_id
+                                        onValueChange={val => {
+                                            const selectedSupplier = suppliers.find(s => String(s.id) === val);
+                                            setHeader({ 
+                                                ...header, 
+                                                supplier_id: val,
+                                                pbf: selectedSupplier ? selectedSupplier.company : '' 
+                                            });
+                                        }}
                                     >
                                         <SelectTrigger className="w-full bg-gray-900 text-white border-gray-700">
                                             <SelectValue placeholder="Pilih Supplier" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-gray-900 text-white">
                                             {suppliers.map(s => (
-                                                <SelectItem key={s.id} value={s.company}>{s.company}</SelectItem>
+                                                <SelectItem key={s.id} value={String(s.id)}>{s.company}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -191,7 +242,8 @@ export default function PurchaseEdit() {
                                     <div className="flex gap-2 items-center">
                                     <Input
                                             id="tanggal_pembayaran"
-                                            name="tanggal_pembayaran"
+                                            name="tanggal_pembayaran" // This name attribute might conflict if header also has it.
+                                                                        // The value is controlled by `tanggalPembayaran` state.
                                             type="date"
                                             value={tanggalPembayaran}
                                             onChange={e => setTanggalPembayaran(e.target.value)}
@@ -206,7 +258,7 @@ export default function PurchaseEdit() {
                                 </div>
                                 <div>
                                     <Label>Total</Label>
-                                    <div className="bg-gray-800 text-green-400 rounded px-3 py-2 font-bold">Rp. {total.toLocaleString('id-ID')}</div>
+                                    <div className="bg-gray-800 text-green-400 rounded px-3 py-2 font-bold">Rp. {displayTotal.toLocaleString('id-ID')}</div>
                                 </div>
                             </div>
                         </div>
