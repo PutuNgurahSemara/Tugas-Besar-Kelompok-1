@@ -113,6 +113,15 @@ export default function SalesCreate() {
         return cart.reduce((total, item) => total + (item.harga * item.cart_quantity), 0);
     }, [cart]);
 
+    // Hitung kembalian
+    const changeAmount = useMemo(() => {
+        const paid = parseFloat(data.amount_paid);
+        if (!isNaN(paid) && paid >= totalPrice) {
+            return paid - totalPrice;
+        }
+        return null; // Atau 0 jika lebih disukai untuk tidak menampilkan apa-apa jika tidak valid
+    }, [data.amount_paid, totalPrice]);
+
     // Submit form
     function submitSale(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -219,29 +228,29 @@ export default function SalesCreate() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{t('item')}</TableHead>
-                                                <TableHead>{t('qty')}</TableHead>
-                                                <TableHead>{t('subtotal')}</TableHead>
-                                                <TableHead>{t('del')}</TableHead>
+                                                <TableHead className="pr-2">{t('item')}</TableHead>
+                                                <TableHead className="w-20 text-center">{t('qty')}</TableHead>
+                                                <TableHead className="w-28 text-right pr-2">{t('subtotal')}</TableHead>
+                                                <TableHead className="w-12 text-center">{t('del')}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {cart.map((item: CartItem) => (
                                                 <TableRow key={item.id}>
-                                                    <TableCell className="font-medium text-xs truncate">{item.nama}</TableCell>
-                                                    <TableCell>
+                                                    <TableCell className="font-medium text-xs truncate pr-2">{item.nama}</TableCell>
+                                                    <TableCell className="text-center">
                                                         <Input
                                                             type="number"
                                                             min="1"
                                                             max={item.quantity}
                                                             value={item.cart_quantity}
                                                             onChange={(e) => updateCartQuantity(item.id, parseInt(e.target.value) || 1)}
-                                                            className="h-8 w-16 text-center"
+                                                            className="h-8 w-16 text-center mx-auto"
                                                         />
                                                     </TableCell>
-                                                    <TableCell className="text-xs">Rp {(item.harga * item.cart_quantity).toLocaleString('id-ID')}</TableCell>
-                                                    <TableCell>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFromCart(item.id)}>
+                                                    <TableCell className="text-xs text-right pr-2">Rp {(item.harga * item.cart_quantity).toLocaleString('id-ID')}</TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6 mx-auto" onClick={() => removeFromCart(item.id)}>
                                                             <X className="h-4 w-4 text-red-500" />
                                                         </Button>
                                                     </TableCell>
@@ -286,6 +295,12 @@ export default function SalesCreate() {
                                     />
                                     <InputError message={typeof (errors as any).amount_paid === 'string' ? (errors as any).amount_paid : undefined} className="mt-2" />
                                 </div>
+                                {changeAmount !== null && changeAmount >= 0 && (
+                                    <div className="flex justify-between font-semibold text-md text-blue-600">
+                                        <span>{t('change')}</span>
+                                        <span>Rp {changeAmount.toLocaleString('id-ID')}</span>
+                                    </div>
+                                )}
                                 <Button
                                     type="submit"
                                     className="w-full bg-green-600 hover:bg-green-700 text-white"

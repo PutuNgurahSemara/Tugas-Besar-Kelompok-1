@@ -23,18 +23,30 @@ class PurchaseController extends Controller
 {
     public function index()
     {
-        $purchases = Purchase::with(['category', 'supplier', 'details'])
+        // Select all relevant fields including the new PPN fields
+        $purchases = Purchase::with(['supplier', 'details']) 
+                        ->select([
+                            'id', 
+                            'no_faktur', 
+                            'pbf', 
+                            'supplier_id',
+                            'tanggal_faktur', 
+                            'jatuh_tempo', 
+                            'jumlah', // This is item count from the purchase header, not sum of detail quantities
+                            'subtotal', 
+                            'ppn_percentage', 
+                            'ppn_amount', 
+                            'total', // This is grand total including PPN
+                            'tanggal_pembayaran', 
+                            'keterangan',
+                            'created_at',
+                            'updated_at'
+                        ])
                         ->orderBy('created_at', 'desc')
                         ->paginate(20);
-
-        // Cek jika koleksi tidak kosong sebelum method_exists
-        $collection = $purchases->getCollection();
-        if ($collection->isNotEmpty() && method_exists($collection->first(), 'products')) {
-        $purchases->getCollection()->transform(function ($purchase) {
-                $purchase->available_quantity = (int)($purchase->quantity ?? 0) - (int)($purchase->used_quantity ?? 0);
-            return $purchase;
-        });
-        }
+        
+        // No transformation needed here if all required fields are directly on the Purchase model
+        // and correctly populated by the store/update methods.
         
         return Inertia::render('Purchases/Index', ['purchases' => $purchases]);
     }
@@ -68,18 +80,21 @@ class PurchaseController extends Controller
             'jumlah' => 'required|integer',
             'tanggal_pembayaran' => 'nullable|date',
             'keterangan' => 'nullable|string',
+            'ppn_percentage' => 'nullable|numeric|min:0|max:100', // Added PPN percentage validation
             'details' => 'required|array|min:1',
             'details.*.nama_produk' => 'required|string',
             'details.*.expired' => 'required|date',
             'details.*.jumlah' => 'required|integer',
             'details.*.kemasan' => 'required|string',
             'details.*.harga_satuan' => 'required|numeric',
-            'details.*.total' => 'required|numeric',
+            'details.*.total' => 'required|numeric', // This 'total' is per detail item
         ]);
 
-        // Hitung total dari details
-        $total = collect($validated['details'])->sum('total');
-        $validated['total'] = $total;
+        // Calculate subtotal from details
+        $subtotal = collect($validated['details'])->sum('total');
+        $ppnPercentage = $validated['ppn_percentage'] ?? 0;
+        $ppnAmount = ($subtotal * $ppnPercentage) / 100;
+        $grandTotal = $subtotal + $ppnAmount;
 
         // Find supplier_id based on pbf
         $supplier = Supplier::where('company', $validated['pbf'])->first();
@@ -90,8 +105,21 @@ class PurchaseController extends Controller
             return redirect()->back()->withInput()->withErrors(['pbf' => 'Supplier tidak ditemukan.']);
         }
 
-        $purchaseData = $validated;
-        $purchaseData['supplier_id'] = $supplier->id;
+        $purchaseData = [
+            'no_faktur' => $validated['no_faktur'],
+            'pbf' => $validated['pbf'],
+            'supplier_id' => $supplier->id,
+            'tanggal_faktur' => $validated['tanggal_faktur'],
+            'jatuh_tempo' => $validated['jatuh_tempo'],
+            'jumlah' => $validated['jumlah'], // This is count of detail items
+            'subtotal' => $subtotal,
+            'ppn_percentage' => $ppnPercentage,
+            'ppn_amount' => $ppnAmount,
+            'total' => $grandTotal, // This is the grand total
+            'tanggal_pembayaran' => $validated['tanggal_pembayaran'] ?? null,
+            'keterangan' => $validated['keterangan'] ?? null,
+        ];
+        // $purchaseData['supplier_id'] = $supplier->id; // Already included
 
         DB::beginTransaction();
         try {

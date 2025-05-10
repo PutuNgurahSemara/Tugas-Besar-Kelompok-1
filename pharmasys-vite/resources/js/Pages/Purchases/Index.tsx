@@ -2,9 +2,10 @@
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem, PaginatedResponse, Purchase, Supplier, Category, PurchaseDetail } from '../../types/index';
 import { Head, Link, usePage, router } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2 } from 'lucide-react'; // Added Eye, Edit, Trash2
 import { useState, useRef } from 'react';
 import { Modal } from '@/components/Modal';
+import { ActionButton } from '@/components/action-button'; // Assuming ActionButton is available
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +15,7 @@ import { FlashMessage } from '@/components/flash-message';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Download } from "lucide-react"; // Import Download icon
+import { Badge } from '@/components/ui/badge'; // Added Badge import
 
 interface PurchasesIndexProps {
     purchases: PaginatedResponse<Purchase>;
@@ -111,42 +113,64 @@ export default function PurchasesIndex() {
                                 <TableHead>PBF</TableHead>
                                 <TableHead>Tanggal Faktur</TableHead>
                                 <TableHead>Jatuh Tempo</TableHead>
-                                <TableHead>Jumlah</TableHead>
-                                <TableHead>Total</TableHead>
-                                <TableHead>Tanggal Pembayaran</TableHead>
+                                <TableHead>Subtotal</TableHead>
+                                <TableHead>PPN (%)</TableHead>
+                                <TableHead>PPN Amount</TableHead>
+                                <TableHead>Grand Total</TableHead>
+                                <TableHead>Pembayaran</TableHead>
                                 <TableHead>Keterangan</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {purchases.data.length > 0 ? (
-                                purchases.data.map((purchase: Purchase) => (
+                                purchases.data.map((purchase: Purchase & { subtotal?: number; ppn_percentage?: number; ppn_amount?: number }) => (
                                     <TableRow key={purchase.id}>
                                         <TableCell>{purchase.no_faktur || '-'}</TableCell>
                                         <TableCell>{purchase.pbf || '-'}</TableCell>
                                         <TableCell>{purchase.tanggal_faktur ? format(new Date(purchase.tanggal_faktur), 'dd MMM yyyy') : '-'}</TableCell>
                                         <TableCell>{purchase.jatuh_tempo ? format(new Date(purchase.jatuh_tempo), 'dd MMM yyyy') : '-'}</TableCell>
-                                        <TableCell>{purchase.jumlah || '-'}</TableCell>
+                                        <TableCell>{typeof purchase.subtotal === 'number' ? `Rp ${purchase.subtotal.toLocaleString('id-ID')}` : '-'}</TableCell>
+                                        <TableCell>{typeof purchase.ppn_percentage === 'number' ? `${purchase.ppn_percentage}%` : '-'}</TableCell>
+                                        <TableCell>{typeof purchase.ppn_amount === 'number' ? `Rp ${purchase.ppn_amount.toLocaleString('id-ID')}` : '-'}</TableCell>
                                         <TableCell>{purchase.total ? `Rp ${purchase.total.toLocaleString('id-ID')}` : '-'}</TableCell>
-                                        <TableCell>{purchase.tanggal_pembayaran ? format(new Date(purchase.tanggal_pembayaran), 'dd MMM yyyy') : '-'}</TableCell>
-                                        <TableCell>{purchase.keterangan || '-'}</TableCell>
-                                        <TableCell className="text-right space-x-2">
-                                            <Link href={route('purchases.edit', purchase.id)}>
-                                                <Button variant="default" size="sm">Edit</Button>
-                                            </Link>
-                                            {purchase.details && purchase.details.length > 0 && (
-                                                <Button variant="secondary" size="sm" onClick={() => handleShowDetails(purchase)}>
-                                                    Detail Produk
-                                                </Button>
+                                        <TableCell>
+                                            {purchase.tanggal_pembayaran ? (
+                                                <>
+                                                    {format(new Date(purchase.tanggal_pembayaran), 'dd MMM yyyy')}
+                                                    <Badge variant="default" className="ml-2 bg-green-500 text-white">Paid</Badge>
+                                                </>
+                                            ) : (
+                                                <Badge variant="secondary">Unpaid</Badge>
                                             )}
-                                            <Link href={route('purchases.export', purchase.id)} target="_blank">
-                                                <Button variant="secondary" size="sm" className="ml-2">
-                                                    <Download className="mr-1 h-4 w-4" /> Export
-                                                </Button>
-                                            </Link>
-                                            <Button variant="destructive" size="sm" onClick={() => handleDelete(purchase.id)} className="ml-2">
-                                                Hapus
-                                            </Button>
+                                        </TableCell>
+                                        <TableCell>{purchase.keterangan || '-'}</TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {purchase.details && purchase.details.length > 0 && (
+                                                    <ActionButton
+                                                        icon={Eye}
+                                                        tooltip="View Details"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleShowDetails(purchase)}
+                                                    />
+                                                )}
+                                                <ActionButton
+                                                    icon={Edit}
+                                                    tooltip="Edit Purchase"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('purchases.edit', purchase.id))}
+                                                />
+                                                <ActionButton
+                                                    icon={Trash2}
+                                                    tooltip="Delete Purchase"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleDelete(purchase.id)}
+                                                />
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))

@@ -49,6 +49,16 @@ export default function Products({ purchaseDetails }: Props) {
         }).format(amount);
     };
 
+    const getStockDisplayText = (jumlah: number, kemasan: string) => {
+        if (jumlah === 0) {
+            return `Habis (${kemasan})`;
+        }
+        if (jumlah === 1) {
+            return `Tersisa 1 ${kemasan}`;
+        }
+        return `${jumlah} ${kemasan}`;
+    };
+
     return (
         <AppLayout>
             <Head title="Purchased Products" />
@@ -109,7 +119,9 @@ export default function Products({ purchaseDetails }: Props) {
                                             </div>
                                             <div>
                                                 <span className="font-semibold">Stock:</span>
-                                                <p className="text-sm">{detail.jumlah} {detail.kemasan}</p>
+                                                <p className={`text-sm ${detail.jumlah === 0 ? 'text-red-500 font-semibold' : ''}`}>
+                                                    {getStockDisplayText(detail.jumlah, detail.kemasan)}
+                                                </p>
                                             </div>
                                             <div>
                                                 <span className="font-semibold">Price:</span>

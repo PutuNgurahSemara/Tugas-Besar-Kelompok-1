@@ -20,26 +20,38 @@ class ProdukController extends Controller
     public function index(Request $request)
     {
         // Get filters from request, provide defaults
-        $filters = $request->only(['search', 'perPage']);
+        $filters = $request->only(['search', 'perPage', 'sort_price']);
         $search = $filters['search'] ?? null;
         $perPage = $filters['perPage'] ?? 10;
+        $sortPrice = $filters['sort_price'] ?? null; // 'asc' or 'desc'
 
         // Get all products with their categories and purchase details
-        $produk = Produk::with(['category', 'purchaseDetails'])
+        $produkQuery = Produk::with(['category', 'purchaseDetails'])
+                        ->select('produk.*') // Ensure we select all columns from produk table
+                        ->leftJoin('purchase_details', 'produk.id', '=', 'purchase_details.produk_id')
+                        ->groupBy('produk.id') 
+                        // Filter for products with total stock > 0 for the main "All Products" view
+                        ->havingRaw('COALESCE(SUM(purchase_details.jumlah), 0) > 0') 
                         ->when($search, function ($query, $search) {
-                            return $query->where('nama', 'like', '%'.$search.'%');
-                        })
-                        ->latest()
-                        ->paginate((int)$perPage)
-                        ->withQueryString();
+                            return $query->where('produk.nama', 'like', '%'.$search.'%');
+                        });
+
+        if ($sortPrice && in_array($sortPrice, ['asc', 'desc'])) {
+            $produkQuery->orderBy('produk.harga', $sortPrice); // Specify table for harga
+        } else {
+            $produkQuery->orderBy('produk.created_at', 'desc'); // Default sort by latest
+        }
+        
+        $produk = $produkQuery->paginate((int)$perPage)->withQueryString();
         
         // Transform products to include stock information from purchase details
         $produk->getCollection()->transform(function ($item) {
-            // Calculate total stock from purchase details
+            // Reload purchaseDetails if they are not fully loaded due to groupBy
+            $item->load('purchaseDetails'); 
             $totalStock = $item->purchaseDetails->sum('jumlah');
             
-            // Get earliest expiry date from purchase details
             $earliestExpiry = $item->purchaseDetails()
+                ->where('jumlah', '>', 0) // Consider only batches with stock for expiry
                 ->whereNotNull('expired')
                 ->orderBy('expired')
                 ->first();
@@ -55,6 +67,7 @@ class ProdukController extends Controller
             'filters' => [
                 'search' => $search,
                 'perPage' => (int)$perPage,
+                'sort_price' => $sortPrice,
             ],
             'pageTitle' => 'All Products',
             'links' => [
@@ -93,12 +106,22 @@ class ProdukController extends Controller
             ];
         });
         
-        $existingProductNames = Produk::pluck('nama')->unique()->toArray();
+        $existingProductsData = Produk::select('id', 'nama', 'category_id', 'margin', 'image')
+                                    ->get()
+                                    ->mapWithKeys(function ($produk) {
+                                        return [$produk->nama => [
+                                            'id' => $produk->id,
+                                            'category_id' => $produk->category_id,
+                                            'margin' => $produk->margin,
+                                            'image' => $produk->image,
+                                        ]];
+                                    })
+                                    ->toArray();
 
         return Inertia::render('Produk/Create', [
             'categories' => $categories,
             'availablePurchaseDetails' => $availablePurchaseDetails,
-            'existingProductNames' => $existingProductNames
+            'existingProductsData' => $existingProductsData // Changed from existingProductNames
         ]);
     }
 
@@ -568,25 +591,39 @@ class ProdukController extends Controller
 
         // Transform collection to include expiry information
         $produk->getCollection()->transform(function ($item) {
+            // Ensure purchaseDetails are loaded for each item
+            $item->load('purchaseDetails');
+
             $item->expiry_statuses = $item->purchaseDetails
                 ->where('jumlah', '>', 0)
                 ->whereNotNull('expired')
                 ->groupBy(function($detail) {
                     $daysUntilExpiry = Carbon::parse($detail->expired)->diffInDays(Carbon::today(), false);
-                    if ($daysUntilExpiry > 0) {
-                        return 'near_expiry';
-                    } else {
+                    // Note: diffInDays returns positive if date1 is before date2.
+                    // If expired is in the past, $daysUntilExpiry will be negative.
+                    if ($daysUntilExpiry < 0) { // Expired
                         return 'expired';
+                    } else { // Near expiry or not (daysUntilExpiry >= 0)
+                        return 'near_expiry'; // The controller query already filters for <= 30 days
                     }
                 })
                 ->map(function($group) {
                     return $group->sum('jumlah');
                 });
+
+            // Also calculate and set earliest_expiry for consistency with Index view
+            $earliestExpiry = $item->purchaseDetails()
+                ->where('jumlah', '>', 0)
+                ->whereNotNull('expired')
+                ->orderBy('expired')
+                ->first();
+            $item->earliest_expiry = $earliestExpiry ? $earliestExpiry->expired : null;
+            $item->total_stock = $item->purchaseDetails->sum('jumlah'); // Also add total_stock
             
             return $item;
         });
 
-        return Inertia::render('Produk/Expired', [
+        return Inertia::render('Produk/Index', [ // Changed view to Produk/Index
             'produk' => $produk,
             'filters' => [
                 'search' => $search,

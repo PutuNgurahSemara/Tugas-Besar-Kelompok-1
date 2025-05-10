@@ -6,12 +6,13 @@ import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialo
 import { Plus, Edit, Trash2, Eye, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Keep for now, might remove if table completely gone
 import { Pagination } from '@/components/pagination';
 import { FlashMessage } from '@/components/flash-message';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
+import { Input } from '@/components/ui/input'; // For search bar
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // For perPage and new filters
+import { Badge } from '@/components/ui/badge'; // Added Badge import
+import { format, differenceInDays, isPast, addDays } from 'date-fns'; // Import more date-fns functions
 import { useState, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
 
@@ -138,87 +139,142 @@ export default function ProdukIndex() {
                 </div>
             </div>
             <FlashMessage flash={flash} />
-            <div className="mt-6 rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Product Name</TableHead>
-                            <TableHead>Category</TableHead>
-                            <TableHead>Stock</TableHead>
-                            <TableHead>Price</TableHead>
-                            <TableHead>Expiry Date</TableHead>
-                            <TableHead className="w-[140px]">Action</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {produkData.data.map((product: ProdukWithRelations) => (
-                            <TableRow key={product.id}>
-                                <TableCell>{product.nama}</TableCell>
-                                <TableCell>{product.category?.name || '-'}</TableCell>
-                                <TableCell>{product.total_stock ?? '0'}</TableCell>
-                                <TableCell>Rp {product.harga.toLocaleString('id-ID')}</TableCell>
-                                <TableCell>
-                                    {product.earliest_expiry ? (
-                                        <div className="flex items-center">
-                                            <span className={
-                                                new Date(product.earliest_expiry) <= new Date() 
-                                                    ? 'text-red-500 font-medium' 
-                                                    : new Date(product.earliest_expiry) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
-                                                        ? 'text-yellow-500 font-medium' 
-                                                        : ''
-                                            }>
-                                                {format(new Date(product.earliest_expiry), 'dd MMM yyyy')}
-                                            </span>
-                                            {new Date(product.earliest_expiry) <= new Date() && (
-                                                <span className="ml-2 bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">
-                                                    Expired
-                                                </span>
-                                            )}
-                                            {new Date(product.earliest_expiry) > new Date() && 
-                                             new Date(product.earliest_expiry) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
-                                                <span className="ml-2 bg-yellow-100 text-yellow-600 text-xs px-2 py-0.5 rounded-full">
-                                                    Expiring Soon
-                                                </span>
-                                            )}
-                                        </div>
-                                    ) : '-'}
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
+
+            {/* Search and Filter Controls */}
+            <div className="my-4 flex flex-wrap items-center gap-4">
+                <Input
+                    type="text"
+                    placeholder="Search products..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="max-w-sm"
+                />
+                <Select value={String(filters.perPage)} onValueChange={handlePerPageChange}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Items per page" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {[10, 20, 50, 100].map(val => (
+                            <SelectItem key={val} value={String(val)}>{val} per page</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select 
+                    value={filters.sort_price || ''} 
+                    onValueChange={(value) => {
+                        const currentUrl = window.location.pathname;
+                        router.get(currentUrl, { 
+                            ...filters,
+                            search: searchQuery,
+                            sort_price: value === 'default_sort' ? undefined : value // Handle special value
+                        }, { 
+                            preserveState: true, 
+                            replace: true 
+                        });
+                    }}
+                >
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Sort by price" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="default_sort">Newest First</SelectItem> {/* Renamed label */}
+                        <SelectItem value="asc">Price: Low to High</SelectItem>
+                        <SelectItem value="desc">Price: High to Low</SelectItem>
+                    </SelectContent>
+                </Select>
+                {/* TODO: Add "Newly Added" filter here later */}
+            </div>
+            
+            {/* Links for special views - can be styled as buttons or tabs */}
+            <div className="mb-4 flex space-x-2">
+                {links?.all && <Link href={links.all}><Button variant={pageTitle === 'All Products' ? 'default' : 'secondary'}>All Products</Button></Link>}
+                {links?.outstock && <Link href={links.outstock}><Button variant={pageTitle === 'Low Stock Products' ? 'default' : 'secondary'}>Low Stock</Button></Link>}
+                {links?.expired && <Link href={links.expired}><Button variant={pageTitle === 'Expired and Near-Expiry Products' ? 'default' : 'secondary'}>Expired/Near Expiry</Button></Link>}
+            </div>
+
+            {/* Card Grid Layout */}
+            {produkData.data.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {produkData.data.map((product: ProdukWithRelations) => {
+                        const expiryDate = product.earliest_expiry ? new Date(product.earliest_expiry) : null;
+                        let expiryText = '-';
+                        let expiryBadgeClass = '';
+
+                        if (expiryDate) {
+                            const daysLeft = differenceInDays(expiryDate, new Date());
+                            expiryText = format(expiryDate, 'dd MMM yyyy');
+                            if (isPast(expiryDate)) {
+                                expiryBadgeClass = 'bg-red-500 text-white';
+                                expiryText += ` (Expired ${differenceInDays(new Date(), expiryDate)} days ago)`;
+                            } else if (daysLeft <= 30) {
+                                expiryBadgeClass = 'bg-yellow-500 text-black';
+                                expiryText += ` (${daysLeft} days left)`;
+                            }
+                        }
+
+                        return (
+                            <Card key={product.id} className="flex flex-col">
+                                <CardHeader>
+                                    {product.image && (
+                                        <img 
+                                            src={`/storage/${product.image}`} 
+                                            alt={product.nama} 
+                                            className="w-full h-40 object-cover rounded-t-md mb-2" 
+                                        />
+                                    )}
+                                    <CardTitle className="text-lg truncate">{product.nama}</CardTitle>
+                                    <CardDescription>{product.category?.name || 'No category'}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex-grow space-y-2">
+                                    <p><span className="font-semibold">Stock:</span> {product.total_stock ?? '0'}</p>
+                                    <p><span className="font-semibold">Price:</span> Rp {product.harga.toLocaleString('id-ID')}</p>
+                                    <div>
+                                        <span className="font-semibold">Expiry: </span>
+                                        {expiryDate ? (
+                                            <Badge className={expiryBadgeClass}>{expiryText}</Badge>
+                                        ) : (
+                                            <span>-</span>
+                                        )}
+                                    </div>
+                                </CardContent>
+                                <div className="p-4 border-t mt-auto">
+                                    <div className="flex items-center justify-end gap-2">
                                         <ActionButton
                                             icon={Eye}
                                             tooltip="View details"
                                             variant="ghost"
+                                            size="sm"
                                             onClick={() => router.visit(route('produk.show', product.id))}
                                         />
                                         <ActionButton
                                             icon={Edit}
                                             tooltip="Edit product"
                                             variant="ghost"
+                                            size="sm"
                                             onClick={() => router.visit(route('produk.edit', product.id))}
                                         />
                                         <ActionButton
                                             icon={Trash2}
                                             tooltip="Delete product"
                                             variant="ghost"
+                                            size="sm"
                                             onClick={() => handleDeleteClick(product.id, product.nama)}
                                         />
                                     </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                        {produkData.data.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">
-                                    No products found. Please add new products.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+                                </div>
+                            </Card>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div className="text-center py-10">
+                    <p className="text-xl text-gray-500">No products found.</p>
+                    <p className="mt-2">Please add new products or adjust your filters.</p>
+                </div>
+            )}
+            
             {produkData.data.length > 0 && (
-                <div className="mt-4">
+                <div className="mt-6">
                     <Pagination links={produkData.links} meta={produkData.meta} />
                 </div>
             )}

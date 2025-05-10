@@ -66,10 +66,16 @@ export default function PurchaseCreate() {
     const [status, setStatus] = useState('UNPAID');
     // State untuk tanggal pembayaran & status
     const [tanggalPembayaran, setTanggalPembayaran] = useState('');
+    const [ppnPercentage, setPpnPercentage] = useState('0'); // State for PPN
+
     // Hitung jumlah produk otomatis
     const jumlahProduk = details.length;
-    // Hitung total otomatis for display purposes
-    const displayTotal = details.reduce((sum, d) => sum + (parseFloat(d.total) || 0), 0);
+
+    // Calculate totals for display
+    const subTotalDisplay = details.reduce((sum, d) => sum + (parseFloat(d.total) || 0), 0);
+    const ppnAmountDisplay = (subTotalDisplay * (parseFloat(ppnPercentage) || 0)) / 100;
+    const grandTotalDisplay = subTotalDisplay + ppnAmountDisplay;
+
     // Jika tanggal pembayaran diisi, status otomatis 'PAID'
     useEffect(() => {
         if (tanggalPembayaran) setStatus('PAID');
@@ -132,8 +138,9 @@ export default function PurchaseCreate() {
             jatuh_tempo: header.jatuh_tempo,
             keterangan: header.keterangan,
             supplier_id: header.supplier_id,
-            jumlah: details.length, // Correctly set the number of product types
-            tanggal_pembayaran: tanggalPembayaran || null, // Send tanggal_pembayaran from its own state
+            jumlah: details.length, 
+            tanggal_pembayaran: tanggalPembayaran || null,
+            ppn_percentage: parseFloat(ppnPercentage) || 0, // Add PPN percentage to submission
             details: details.map(detail => ({
                 ...detail,
                 jumlah: parseInt(detail.jumlah) || 0,
@@ -237,8 +244,21 @@ export default function PurchaseCreate() {
                                     <Input id="keterangan" name="keterangan" value={header.keterangan} onChange={handleHeaderChange} />
                                 </div>
                                 <div>
-                                    <Label>Total</Label>
-                                    <div className="bg-gray-800 text-green-400 rounded px-3 py-2 font-bold">Rp. {displayTotal.toLocaleString('id-ID')}</div>
+                                    <Label htmlFor="ppn_percentage">PPN (%)</Label>
+                                    <Input 
+                                        id="ppn_percentage" 
+                                        name="ppn_percentage" 
+                                        type="number"
+                                        value={ppnPercentage} 
+                                        onChange={(e) => setPpnPercentage(e.target.value)} 
+                                        min="0" max="100" step="0.01"
+                                        placeholder="e.g. 11"
+                                    />
+                                </div>
+                                <div className="space-y-1 mt-1">
+                                    <p className="text-sm flex justify-between">Subtotal: <span className="font-semibold">Rp. {subTotalDisplay.toLocaleString('id-ID')}</span></p>
+                                    <p className="text-sm flex justify-between">PPN ({ppnPercentage || 0}%): <span className="font-semibold">Rp. {ppnAmountDisplay.toLocaleString('id-ID')}</span></p>
+                                    <p className="text-lg flex justify-between text-green-400">Grand Total: <span className="font-bold">Rp. {grandTotalDisplay.toLocaleString('id-ID')}</span></p>
                                 </div>
                             </div>
                         </div>

@@ -21,6 +21,9 @@ class Purchase extends Model
         'tanggal_pembayaran',
         'keterangan',
         'supplier_id',
+        'subtotal',
+        'ppn_percentage',
+        'ppn_amount',
     ];
 
     /**
