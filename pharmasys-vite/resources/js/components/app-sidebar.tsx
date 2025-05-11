@@ -285,7 +285,7 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   
   // Dynamic sidebar classes based on breakpoint and open state
   const sidebarClasses = cn(
-    'fixed left-0 top-0 h-screen bg-gray-900 text-gray-100 overflow-hidden border-r shadow-lg flex flex-col z-40 transition-all duration-300 ease-in-out sidebar',
+    'fixed left-0 top-0 h-screen bg-gray-900 text-gray-100 overflow-hidden border-r shadow-lg flex flex-col z-40 transition-all duration-300 ease-in-out sidebar [perspective:800px]',
     // Width classes berdasarkan state dan breakpoint
     {
       // Desktop/tablet collapsed (ikon saja)
@@ -378,9 +378,10 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               <button
                 onClick={() => toggleSubmenu(item.title)}
                 className={cn(
-                  'flex items-center justify-between w-full rounded-md text-sm font-medium transition-colors px-3 py-2',
-                  'hover:bg-gray-800 hover:text-white',
-                  isActive(item.href.toString()) ? 'bg-gray-800 text-white' : 'text-gray-300',
+                  'flex items-center justify-between w-full rounded-md text-sm font-medium transition-all duration-200 ease-in-out py-2',
+                  isActive(item.href.toString())
+                    ? 'bg-green-600 text-white border-l-4 border-green-400 pl-2 pr-3 scale-100' // Active state
+                    : 'text-gray-300 px-3 hover:bg-gray-800 hover:text-white hover:scale-105 hover:-translate-y-px hover:rotate-y-1', // Non-active state with hover
                 )}
               >
                 <div className="flex items-center">
@@ -402,12 +403,13 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                       key={`${item.title}-sub-${index}`}
                       href={subItem.href}
                       className={cn(
-                        'flex items-center rounded-md text-sm transition-colors py-2 px-3',
-                        'hover:bg-gray-800 hover:text-white',
-                        isActive(subItem.href.toString()) ? 'text-white font-medium' : 'text-gray-400',
+                        'flex items-center rounded-md text-sm transition-all duration-200 ease-in-out py-2',
+                        isActive(subItem.href.toString())
+                          ? 'bg-green-600 text-white font-medium border-l-4 border-green-400 pl-2 pr-3 scale-100' // Active state
+                          : 'text-gray-400 px-3 hover:bg-gray-700 hover:text-white hover:scale-105 hover:-translate-y-px hover:translate-x-1', // Non-active state with hover
                       )}
                     >
-                      <span>{subItem.title}</span>
+                      <span className="block transform transition-transform duration-200 ease-in-out group-hover:translate-x-0.5">{subItem.title}</span>
                     </Link>
                   ))}
                 </div>
@@ -415,17 +417,34 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
             </div>
           ) : (
             // Icon-only collapsed view
-            <Link
-              href={item.href}
-              className={cn(
-                'flex items-center rounded-md text-sm font-medium transition-colors',
-                'hover:bg-gray-800 hover:text-white',
-                isActive(item.href.toString()) ? 'bg-gray-800 text-white' : 'text-gray-300',
-                'justify-center p-2'
-              )}
-            >
-              {item.icon && <Icon iconNode={item.icon} className="h-5 w-5 shrink-0" />}
-            </Link>
+            <div className="relative group"> {/* Added group for tooltip positioning */}
+              <Link
+                href={item.href}
+                className={cn(
+                  'flex items-center rounded-md text-sm font-medium transition-all duration-150 ease-in-out',
+                  isActive(item.href.toString()) 
+                    ? 'bg-green-600 text-white' // Active state for collapsed
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white', // Non-active hover for collapsed
+                  'justify-center p-2'
+                )}
+              >
+                {item.icon && (
+                  <Icon 
+                    iconNode={item.icon} 
+                    className="h-5 w-5 shrink-0 transition-transform duration-150 ease-in-out group-hover:scale-110" 
+                  />
+                )}
+              </Link>
+              {/* Tooltip for collapsed view */}
+              <div className={cn(
+                "absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1",
+                "bg-gray-700 text-white text-xs rounded-md shadow-lg",
+                "opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 whitespace-nowrap",
+                "pointer-events-none" // Prevent tooltip from capturing mouse events
+              )}>
+                {item.title}
+              </div>
+            </div>
           )}
         </div>
       );
@@ -437,23 +456,42 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         <Link
           href={item.href}
           className={cn(
-            'flex items-center rounded-md text-sm font-medium transition-colors',
-            'hover:bg-gray-800 hover:text-white',
-            isActive(item.href.toString()) ? 'bg-gray-800 text-white' : 'text-gray-300',
-            isOpen || breakpoint === 'mobile' ? 'px-3 py-2' : 'justify-center p-2'
+            'flex items-center rounded-md text-sm font-medium transition-all duration-200 ease-in-out relative group', // Added relative group
+            isActive(item.href.toString())
+              ? 'bg-green-600 text-white border-l-4 border-green-400 scale-100' // Active state (expanded)
+              : 'text-gray-300 hover:bg-gray-800 hover:text-white hover:scale-105 hover:-translate-y-px hover:rotate-y-1', // Non-active state with hover (expanded)
+            (isOpen || breakpoint === 'mobile')
+              ? (isActive(item.href.toString()) ? 'pl-2 pr-3 py-2' : 'px-3 py-2') // Padding for expanded
+              : cn( // Classes for collapsed view
+                  'justify-center p-2',
+                  isActive(item.href.toString())
+                    ? 'bg-green-600 text-white border-l-4 border-green-500' // Active state (collapsed)
+                    : 'hover:bg-gray-700' // Non-active hover for collapsed
+                ) 
           )}
         >
           {item.icon && (
             <Icon 
               iconNode={item.icon} 
               className={cn(
-                "h-5 w-5 shrink-0", 
-                isOpen || breakpoint === 'mobile' ? "mr-3" : ""
+                "h-5 w-5 shrink-0 transition-transform duration-150 ease-in-out", 
+                (isOpen || breakpoint === 'mobile') ? "mr-3" : "group-hover:scale-110" // Scale icon on hover only when collapsed
               )}
             />
           )}
           {(isOpen || breakpoint === 'mobile') && (
             <span className="transition-opacity duration-200">{item.title}</span>
+          )}
+          {/* Tooltip for collapsed regular items */}
+          {!(isOpen || breakpoint === 'mobile') && (
+            <div className={cn(
+              "absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1",
+              "bg-gray-700 text-white text-xs rounded-md shadow-lg",
+              "opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 whitespace-nowrap",
+              "pointer-events-none"
+            )}>
+              {item.title}
+            </div>
           )}
         </Link>
       </div>

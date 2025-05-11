@@ -109,6 +109,7 @@ export default function PurchaseReport() {
     const [supplierId, setSupplierId] = useState<string>(
         filters.supplier_id ? String(filters.supplier_id) : 'all'
     );
+    const [reportType, setReportType] = useState<'detail' | 'summary'>('detail'); // State for report type
     
     const filterReport = () => {
         router.get(route('reports.purchase'), {
@@ -122,19 +123,27 @@ export default function PurchaseReport() {
     };
     
     const exportToExcel = () => {
-        window.location.href = route('reports.purchase.export.excel', {
+        const params: any = {
             start_date: startDate || '',
             end_date: endDate || '',
-            supplier_id: supplierId || null,
-        });
+            report_type: reportType,
+        };
+        if (supplierId && supplierId !== 'all') {
+            params.supplier_id = supplierId;
+        }
+        window.location.href = route('reports.purchase.export.excel', params);
     };
     
     const exportToPdf = () => {
-        window.location.href = route('reports.purchase.export.pdf', {
+        const params: any = {
             start_date: startDate || '',
             end_date: endDate || '',
-            supplier_id: supplierId || null,
-        });
+            report_type: reportType,
+        };
+        if (supplierId && supplierId !== 'all') {
+            params.supplier_id = supplierId;
+        }
+        window.location.href = route('reports.purchase.export.pdf', params);
     };
     
     const lineChartData = {
@@ -211,13 +220,25 @@ export default function PurchaseReport() {
                                     </SelectContent>
                                 </Select>
                             </div>
+                             <div className="space-y-2">
+                                <label className="text-sm font-medium">Jenis Laporan</label>
+                                <Select value={reportType} onValueChange={(value) => setReportType(value as 'detail' | 'summary')}>
+                                    <SelectTrigger className="w-full md:w-48">
+                                        <SelectValue placeholder="Pilih Jenis Laporan" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="detail">Detail Pembelian</SelectItem>
+                                        <SelectItem value="summary">Ringkasan Pembelian</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             
-                            <Button onClick={filterReport}>
+                            <Button onClick={filterReport} className="self-end">
                                 <RefreshCw className="mr-2 h-4 w-4" />
                                 Terapkan Filter
                             </Button>
 
-                            <div className="flex gap-2 ml-auto">
+                            <div className="flex gap-2 ml-auto self-end">
                                 <Button variant="secondary" onClick={exportToExcel}>
                                     <FileText className="mr-2 h-4 w-4" />
                                     Export Excel

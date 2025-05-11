@@ -1,16 +1,20 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type PaginatedResponse, type Supplier } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Head, Link, usePage, router } from '@inertiajs/react'; // Added router
+import { Plus, Edit, Trash2 } from 'lucide-react'; // Added Edit, Trash2
 import { FaWhatsapp } from 'react-icons/fa';
+import { useState } from 'react'; // Added useState
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/pagination';
 import { FlashMessage } from '@/components/flash-message';
+import { ActionButton } from '@/components/action-button'; // Added ActionButton
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'; // Added DeleteConfirmationDialog
 
 interface SuppliersIndexProps {
     suppliers: PaginatedResponse<Supplier>;
+    [key: string]: any; // Add index signature for PageProps compatibility
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -20,6 +24,30 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function SuppliersIndex() {
     const { suppliers, flash } = usePage<SuppliersIndexProps>().props;
+    const [deleteDialog, setDeleteDialog] = useState({
+        isOpen: false,
+        supplierId: 0,
+        supplierName: '',
+    });
+
+    const handleDeleteClick = (id: number, name: string) => {
+        setDeleteDialog({
+            isOpen: true,
+            supplierId: id,
+            supplierName: name,
+        });
+    };
+
+    const handleDeleteConfirm = () => {
+        router.delete(route('suppliers.destroy', deleteDialog.supplierId), {
+            onSuccess: () => {
+                setDeleteDialog({ isOpen: false, supplierId: 0, supplierName: '' });
+            },
+            onError: () => {
+                setDeleteDialog({ isOpen: false, supplierId: 0, supplierName: '' });
+            }
+        });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -76,19 +104,23 @@ export default function SuppliersIndex() {
                                             ) : '-'}
                                         </TableCell>
                                         <TableCell>{supplier.note || '-'}</TableCell>
-                                        <TableCell className="text-right space-x-2">
-                                            <Link href={route('suppliers.edit', supplier.id)}>
-                                                <Button variant="outline" size="sm">Edit</Button>
-                                            </Link>
-                                            <Link
-                                                href={route('suppliers.destroy', supplier.id)}
-                                                method="delete"
-                                                as="button"
-                                                onBefore={() => confirm('Are you sure?')}
-                                                className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-red-500 hover:bg-red-600 text-white px-3 py-2"
-                                            >
-                                                Delete
-                                            </Link>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <ActionButton
+                                                    icon={Edit}
+                                                    tooltip="Edit Supplier"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('suppliers.edit', supplier.id))}
+                                                />
+                                                <ActionButton
+                                                    icon={Trash2}
+                                                    tooltip="Delete Supplier"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteClick(supplier.id, supplier.company)}
+                                                />
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -104,6 +136,13 @@ export default function SuppliersIndex() {
                     <Pagination links={suppliers.links} meta={suppliers.meta} className="mt-4"/>
                 </CardContent>
             </Card>
+            <DeleteConfirmationDialog
+                isOpen={deleteDialog.isOpen}
+                onClose={() => setDeleteDialog({ isOpen: false, supplierId: 0, supplierName: '' })}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Supplier"
+                description={`Are you sure you want to delete the supplier "${deleteDialog.supplierName}"? This action cannot be undone.`}
+            />
         </AppLayout>
     );
-} 
+}

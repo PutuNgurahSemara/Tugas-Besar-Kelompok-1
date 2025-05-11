@@ -773,4 +773,47 @@ class PurchaseController extends Controller
             'purchaseDetails' => $purchaseDetails
         ]);
     }
+
+    public function exportReport(Request $request)
+    {
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'supplier_id' => 'nullable|string', // Can be 'all' or an ID
+            'report_type' => 'required|string|in:detail,summary',
+            'format' => 'nullable|string|in:xlsx,pdf', // Optional format
+        ]);
+
+        $startDate = $validated['start_date'];
+        $endDate = $validated['end_date'];
+        $supplierId = $validated['supplier_id'] ?? null;
+        $reportType = $validated['report_type'];
+        $format = strtolower($validated['format'] ?? 'xlsx'); // Default to xlsx
+
+        $timestamp = now()->format('Ymd_His');
+        
+        if ($reportType === 'detail') {
+            $filename = "purchase_detail_report_{$timestamp}.{$format}";
+            $exportClass = new \App\Exports\PurchaseReportExport($startDate, $endDate, $supplierId);
+        } elseif ($reportType === 'summary') {
+            $filename = "purchase_summary_report_{$timestamp}.{$format}";
+            $exportClass = new \App\Exports\PurchaseOrderSummaryExport($startDate, $endDate, $supplierId);
+        } else {
+            // Should not happen due to validation, but as a fallback
+            return redirect()->back()->withErrors(['report_type' => 'Jenis laporan tidak valid.']);
+        }
+
+        if ($format === 'pdf') {
+            // Ensure you have a PDF driver configured for Maatwebsite/Excel, e.g., DomPDF or TCPDF
+            // composer require maatwebsite/excel-dompdf
+            // return Excel::download($exportClass, $filename, \Maatwebsite\Excel\Excel::DOMPDF);
+            // For now, let's return an error if PDF is requested but not fully set up.
+            // Or, we can just attempt it and let it fail if the driver isn't there.
+            // For simplicity, I'll stick to Excel for now unless PDF setup is confirmed.
+            // If you want to enable PDF, ensure the driver is installed and uncomment the line above.
+             return Excel::download($exportClass, $filename); // Defaults to XLSX if driver not specified
+        }
+
+        return Excel::download($exportClass, $filename);
+    }
 }

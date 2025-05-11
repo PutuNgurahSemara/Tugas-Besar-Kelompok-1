@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import CountUp from 'react-countup';
 // Hapus PlaceholderPattern jika tidak digunakan
 // import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
 import AppLayout from '@/layouts/app-layout';
@@ -116,6 +117,8 @@ export default function Dashboard() {
           'rgba(134, 239, 172, 1)',
         ],
         borderWidth: 1,
+        // hoverBorderWidth: 3, // Reverted
+        // hoverOffset: 20,      // Reverted
       },
     ],
   };
@@ -167,48 +170,56 @@ export default function Dashboard() {
         </h1>
 
         {/* Top Summary Cards - Gunakan komponen Card */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6 [perspective:1000px]">
           {/* Card Today's Sales */}
-          <Card>
+          <Card className="transition-all duration-300 ease-in-out hover:scale-105 hover:-translate-y-1 hover:rotate-y-2 hover:shadow-xl dark:hover:shadow-2xl dark:hover:shadow-green-500/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Today's Sales</CardTitle>
               <DollarSign className="h-5 w-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">Rp {todaySales.toLocaleString()}</div>
+              <div className="text-2xl font-bold">
+                Rp <CountUp end={todaySales} duration={2} separator="." decimal="," />
+              </div>
               {/* <p className="text-xs text-muted-foreground">+20.1% from last month</p> */}
             </CardContent>
           </Card>
           {/* Card Available Categories */}
-          <Card>
+          <Card className="transition-all duration-300 ease-in-out hover:scale-105 hover:-translate-y-1 hover:rotate-y-2 hover:shadow-xl dark:hover:shadow-2xl dark:hover:shadow-blue-500/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Available Categories</CardTitle>
               <LayoutGrid className="h-5 w-5 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalCategories}</div>
+              <div className="text-2xl font-bold">
+                <CountUp end={totalCategories} duration={1.5} />
+              </div>
                {/* <p className="text-xs text-muted-foreground">+180.1% from last month</p> */}
             </CardContent>
           </Card>
           {/* Card Expired Medicines */}
-          <Card>
+          <Card className="transition-all duration-300 ease-in-out hover:scale-105 hover:-translate-y-1 hover:rotate-y-2 hover:shadow-xl dark:hover:shadow-2xl dark:hover:shadow-red-500/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Expired Medicines</CardTitle>
               <Archive className="h-5 w-5 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{expiredMedicines}</div>
+              <div className="text-2xl font-bold">
+                <CountUp end={expiredMedicines} duration={1.5} />
+              </div>
               {/* <p className="text-xs text-muted-foreground">+19% from last month</p> */}
             </CardContent>
           </Card>
            {/* Card System Users */}
-          <Card>
+          <Card className="transition-all duration-300 ease-in-out hover:scale-105 hover:-translate-y-1 hover:rotate-y-2 hover:shadow-xl dark:hover:shadow-2xl dark:hover:shadow-yellow-500/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">System Users</CardTitle>
               <Users className="h-5 w-5 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{systemUsers}</div>
+              <div className="text-2xl font-bold">
+                <CountUp end={systemUsers} duration={1.5} />
+              </div>
                {/* <p className="text-xs text-muted-foreground">+201 since last hour</p> */}
             </CardContent>
           </Card>

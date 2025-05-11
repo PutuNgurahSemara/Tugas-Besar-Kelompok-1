@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/pagination';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye } from 'lucide-react'; // Added Eye
 import { FlashMessage } from '@/components/flash-message';
 import { format } from 'date-fns'; // Import format
 import { useTranslation } from '@/hooks/use-translation';
@@ -14,17 +14,13 @@ import { Input } from '@/components/ui/input';
 import { useState, useMemo } from 'react';
 import { useToast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
-
-// Ganti any dengan tipe Permission jika sudah ada
-interface SpatiePermission { 
-    id: number;
-    name: string;
-    guard_name: string;
-    created_at: string; // atau Date
-}
+import { ActionButton } from '@/components/action-button'; // Added ActionButton
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'; // Added DeleteConfirmationDialog
+import type { Permission } from '@/types'; // Using Permission type from global types
 
 interface PermissionsIndexProps {
-    permissions: PaginatedResponse<SpatiePermission>;
+    permissions: PaginatedResponse<Permission & { guard_name: string; created_at: string }>; // Use global Permission type
+    [key: string]: any; // Add index signature
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -38,9 +34,43 @@ export default function PermissionsIndex() {
     const { showToast } = useToast();
     const { permissions, flash } = usePage<PermissionsIndexProps>().props;
     const [searchTerm, setSearchTerm] = useState('');
-    const [entriesPerPage, setEntriesPerPage] = useState('10');
+    // const [entriesPerPage, setEntriesPerPage] = useState('10'); // This state is not used for pagination control in the provided code
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [deleteDialog, setDeleteDialog] = useState({
+        isOpen: false,
+        permissionId: 0,
+        permissionName: '',
+    });
 
+    const handleDeleteClick = (id: number, name: string) => {
+        setDeleteDialog({
+            isOpen: true,
+            permissionId: id,
+            permissionName: name,
+        });
+    };
+
+    const handleDeleteConfirm = () => {
+        router.delete(route('permissions.destroy', deleteDialog.permissionId), {
+            onSuccess: () => {
+                setDeleteDialog({ isOpen: false, permissionId: 0, permissionName: '' });
+                showToast(
+                    t('permission.deleted'),
+                    t('permission.deleted.message'),
+                    'success'
+                );
+            },
+            onError: () => {
+                setDeleteDialog({ isOpen: false, permissionId: 0, permissionName: '' });
+                showToast(
+                    t('error'),
+                    t('permission.delete.error'),
+                    'error'
+                );
+            }
+        });
+    };
+    
     // Filter permissions berdasarkan search term dan kategori
     const filteredPermissions = permissions.data.filter(permission => {
         const nameMatches = permission.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -103,27 +133,7 @@ export default function PermissionsIndex() {
         return permissionName;
     };
 
-    // Handle delete permission
-    const handleDelete = (id: number, name: string) => {
-        if (confirm(`Apakah Anda yakin ingin menghapus permission "${name}"?`)) {
-            router.delete(route('permissions.destroy', id), {
-                onSuccess: () => {
-                    showToast(
-                        t('permission.deleted'),
-                        t('permission.deleted.message'),
-                        'success'
-                    );
-                },
-                onError: () => {
-                    showToast(
-                        t('error'),
-                        t('permission.delete.error'),
-                        'error'
-                    );
-                }
-            });
-        }
-    };
+    // handleDelete is replaced by handleDeleteClick and handleDeleteConfirm
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -192,10 +202,11 @@ export default function PermissionsIndex() {
                 <CardHeader>
                     <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center gap-2">
-                            <span>{t('show')}</span>
+                            {/* Show entries select can be re-added if pagination logic is updated to use it */}
+                            {/* <span>{t('show')}</span>
                             <select 
                                 className="border rounded p-1"
-                                value={entriesPerPage}
+                                value={entriesPerPage} // This state is not currently used for pagination
                                 onChange={(e) => setEntriesPerPage(e.target.value)}
                             >
                                 <option value="10">10</option>
@@ -203,9 +214,9 @@ export default function PermissionsIndex() {
                                 <option value="50">50</option>
                                 <option value="100">100</option>
                             </select>
-                            <span>{t('entries')}</span>
+                            <span>{t('entries')}</span> */}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 ml-auto"> {/* Moved search to the right */}
                             <span>{t('search')}:</span>
                             <Input 
                                 value={searchTerm}
@@ -251,30 +262,30 @@ export default function PermissionsIndex() {
                                         <TableCell>
                                             {format(new Date(permission.created_at), 'EEE MMM yyyy')}
                                         </TableCell>
-                                        <TableCell className="text-right space-x-2">
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                className="bg-slate-100 hover:bg-slate-200 text-slate-700"
-                                                onClick={() => router.visit(route('permissions.show', permission.id))}
-                                            >
-                                                {t('view')}
-                                            </Button>
-                                            <Button 
-                                                variant="default" 
-                                                size="sm" 
-                                                className="bg-blue-500 hover:bg-blue-600"
-                                                onClick={() => router.visit(route('permissions.edit', permission.id))}
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button 
-                                                variant="destructive" 
-                                                size="sm"
-                                                onClick={() => handleDelete(permission.id, permission.name)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <ActionButton
+                                                    icon={Eye}
+                                                    tooltip={t('view')}
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('permissions.show', permission.id))}
+                                                />
+                                                <ActionButton
+                                                    icon={Edit}
+                                                    tooltip={t('edit')}
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('permissions.edit', permission.id))}
+                                                />
+                                                <ActionButton
+                                                    icon={Trash2}
+                                                    tooltip={t('delete')}
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteClick(permission.id, permission.name)}
+                                                />
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -290,6 +301,17 @@ export default function PermissionsIndex() {
                     <Pagination links={permissions.links} meta={permissions.meta} className="mt-4" />
                 </CardContent>
             </Card>
+            <DeleteConfirmationDialog
+                isOpen={deleteDialog.isOpen}
+                onClose={() => setDeleteDialog({ isOpen: false, permissionId: 0, permissionName: '' })}
+                onConfirm={handleDeleteConfirm}
+                title={t('delete.permission')}
+                description={
+                    deleteDialog.permissionName
+                        ? `${t('delete.permission.confirm.prefix')} "${deleteDialog.permissionName}"? ${t('delete.permission.confirm.suffix')}`
+                        : t('delete.permission.confirm.generic')
+                }
+            />
         </AppLayout>
     );
-} 
+}

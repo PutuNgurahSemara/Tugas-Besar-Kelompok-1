@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge'; // Added Badge import
 
 interface PurchasesIndexProps {
     purchases: PaginatedResponse<Purchase>;
+    // suppliers: Supplier[]; // Removed suppliers prop
     [key: string]: any;
 }
 
@@ -28,12 +29,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function PurchasesIndex() {
-    const { purchases, flash } = usePage<PurchasesIndexProps>().props;
+    const { purchases, flash } = usePage<PurchasesIndexProps>().props; // Removed suppliers
     const [showModal, setShowModal] = useState(false);
     const [selectedDetails, setSelectedDetails] = useState<PurchaseDetail[]>([]);
     const [selectedFaktur, setSelectedFaktur] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importAlert, setImportAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    // Removed State for report filters
+    // const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+    // const [endDate, setEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+    // const [selectedSupplierId, setSelectedSupplierId] = useState<string>('all');
 
     const handleShowDetails = (purchase: Purchase) => {
         setSelectedDetails(purchase.details || []);
@@ -45,6 +51,8 @@ export default function PurchasesIndex() {
         setSelectedDetails([]);
         setSelectedFaktur('');
     };
+
+    // Removed handleExport function
 
     const handleImportClick = () => {
         fileInputRef.current?.click();
@@ -97,8 +105,9 @@ export default function PurchasesIndex() {
                         </div>
                     </div>
                     <FlashMessage flash={flash} />
+                    {/* Removed Report Filters and Export Buttons UI */}
                 </CardHeader>
-                <CardContent>
+                <CardContent> {/* Restored original CardContent padding if any */}
                     {importAlert && (
                         <Alert variant={importAlert.type === 'success' ? undefined : 'destructive'} className="mb-4">
                             <AlertCircle className="h-5 w-5" />

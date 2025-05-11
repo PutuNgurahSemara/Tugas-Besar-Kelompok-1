@@ -73,6 +73,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('purchases/{id}/export', [PurchaseController::class, 'export'])
             ->middleware('permission:export-purchase')
             ->name('purchases.export');
+        
+        // New route for bulk purchase reports
+        Route::get('purchases/export-report', [PurchaseController::class, 'exportReport'])
+            ->middleware('permission:export-purchase') // Assuming same permission for now
+            ->name('purchases.exportReport');
+
         Route::get('purchases/products', [PurchaseController::class, 'purchasedProducts'])
             ->name('purchases.products');
             

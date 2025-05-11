@@ -213,7 +213,10 @@ export default function ProdukIndex() {
                         }
 
                         return (
-                            <Card key={product.id} className="flex flex-col">
+                            <Card 
+                                key={product.id} 
+                                className="flex flex-col transition-all duration-300 ease-in-out hover:scale-102 hover:shadow-lg dark:hover:border-slate-700"
+                            >
                                 <CardHeader>
                                     {product.image && (
                                         <img 

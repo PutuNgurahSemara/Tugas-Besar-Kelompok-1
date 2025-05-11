@@ -1,28 +1,24 @@
 // Placeholder Page for Roles
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem, type PaginatedResponse } from '@/types'; // Tambah Role jika sudah ada
-import { Head, Link, usePage } from '@inertiajs/react';
+import { type BreadcrumbItem, type PaginatedResponse, type Role } from '@/types'; // Added Role
+import { Head, Link, usePage, router } from '@inertiajs/react'; // Added router
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useState } from 'react'; // Added useState
+import { ActionButton } from '@/components/action-button'; // Added ActionButton
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'; // Added DeleteConfirmationDialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/pagination';
-import { Plus } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react'; // Added Edit, Trash2
 import { FlashMessage } from '@/components/flash-message';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 
-// Ganti any dengan tipe Role jika sudah ada (termasuk permissions_count atau permissions)
-interface SpatieRole { 
-    id: number;
-    name: string;
-    permissions_count?: number; // Jika pakai withCount
-    permissions?: { id: number; name: string }[]; // Jika pakai with
-    created_at: string; // atau Date
-}
-
+// Using Role type from @/types
 interface RolesIndexProps {
-    roles: PaginatedResponse<SpatieRole>;
+    roles: PaginatedResponse<Role & { permissions_count?: number; created_at: string }>; // Ensure Role has these if needed, or adjust
+    [key: string]: any; // Add index signature
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -33,6 +29,30 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function RolesIndex() {
     const { roles, flash } = usePage<RolesIndexProps>().props;
+    const [deleteDialog, setDeleteDialog] = useState({
+        isOpen: false,
+        roleId: 0,
+        roleName: '',
+    });
+
+    const handleDeleteClick = (id: number, name: string) => {
+        setDeleteDialog({
+            isOpen: true,
+            roleId: id,
+            roleName: name,
+        });
+    };
+
+    const handleDeleteConfirm = () => {
+        router.delete(route('roles.destroy', deleteDialog.roleId), {
+            onSuccess: () => {
+                setDeleteDialog({ isOpen: false, roleId: 0, roleName: '' });
+            },
+            onError: () => {
+                setDeleteDialog({ isOpen: false, roleId: 0, roleName: '' });
+            }
+        });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -67,29 +87,26 @@ export default function RolesIndex() {
                                 <TableRow key={role.id}>
                                     <TableCell>{role.id}</TableCell>
                                     <TableCell className="font-medium">{role.name}</TableCell>
-                                    <TableCell>{role.permissions_count ?? '-'}</TableCell>
-                                    <TableCell>{role.created_at ? format(new Date(role.created_at), 'dd MMM yyyy') : '-'}</TableCell>
-                                    <TableCell className="text-right space-x-2">
-                                        <Link 
-                                        href={route('roles.edit', role.id)}
-                                        className={cn(
-                                            buttonVariants({ variant: "outline", size: "sm" }),
-                                            "bg-blue-500 hover:bg-blue-600 text-white"
-                                        )}
-                                        >
-                                        Edit
-                                        </Link>
-                                        <Link
-                                        href={route('roles.destroy', role.id)}
-                                        method="delete"
-                                        as="button"
-                                        onBefore={() => confirm('Are you sure you want to delete this role?')}
-                                        className={cn(
-                                            "bg-red-500 hover:bg-red-600 text-white inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-medium"
-                                        )}
-                                        >
-                                        Delete
-                                        </Link>
+                                    <TableCell>{(role as any).permissions_count ?? '-'}</TableCell> 
+                                    <TableCell>{(role as any).created_at ? format(new Date((role as any).created_at), 'dd MMM yyyy') : '-'}</TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <ActionButton
+                                                icon={Edit}
+                                                tooltip="Edit Role"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => router.visit(route('roles.edit', role.id))}
+                                            />
+                                            {/* Add condition to prevent deleting essential roles if necessary */}
+                                            <ActionButton
+                                                icon={Trash2}
+                                                tooltip="Delete Role"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleDeleteClick(role.id, role.name)}
+                                            />
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))
@@ -105,6 +122,13 @@ export default function RolesIndex() {
                      <Pagination links={roles.links} meta={roles.meta} className="mt-4"/>
                 </CardContent>
             </Card>
+            <DeleteConfirmationDialog
+                isOpen={deleteDialog.isOpen}
+                onClose={() => setDeleteDialog({ isOpen: false, roleId: 0, roleName: '' })}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Role"
+                description={`Are you sure you want to delete the role "${deleteDialog.roleName}"? This action cannot be undone.`}
+            />
         </AppLayout>
     );
-} 
+}

@@ -1,8 +1,13 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react'; // Added router
 import AppLayout from '@/layouts/app-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
+import { ProductCard, type ProductCardData } from '@/components/product-card';
+import { Button } from '@/components/ui/button';
+import { PlusCircle, Package, Search as SearchIcon, Filter as FilterIcon, X as ClearIcon } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Added Card components
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Added Select
+import { useState, useMemo, useEffect } from 'react'; // Added useState, useMemo, useEffect
+import { debounce } from 'lodash'; // For debouncing search
 
 interface PurchaseDetailProps {
     id: number;
@@ -17,143 +22,176 @@ interface PurchaseDetailProps {
     purchase_date: string;
     is_listed_as_product: boolean;
     is_directly_linked_to_product: boolean;
+    produk_id_terkait?: number | null;
+    kategori_produk?: string | null;
 }
 
 interface Props {
     purchaseDetails: PurchaseDetailProps[];
+    filters?: { // Optional filters prop if passed from controller
+        search?: string;
+        supplier?: string;
+        category?: string;
+    }
 }
 
-export default function Products({ purchaseDetails }: Props) {
-    // Calculate days until expiry for a given date
-    const getDaysUntilExpiry = (expiryDate: string | null) => {
-        if (!expiryDate) return null;
-        const today = new Date();
-        const expiry = new Date(expiryDate);
-        const diffTime = expiry.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays;
-    };
+export default function Products({ purchaseDetails, filters: initialFilters }: Props) {
+    const [searchTerm, setSearchTerm] = useState(initialFilters?.search || '');
+    const [selectedSupplier, setSelectedSupplier] = useState(initialFilters?.supplier || 'all');
+    const [selectedCategory, setSelectedCategory] = useState(initialFilters?.category || 'all');
 
-    // Get badge color based on expiry days
-    const getExpiryBadgeColor = (days: number | null): "default" | "destructive" | "secondary" => {
-        if (days === null) return 'secondary';
-        if (days < 0) return 'destructive';
-        if (days < 90) return 'default';
-        return 'secondary';
-    };
+    // Debounced search effect (optional, good for performance if API based)
+    // For client-side filtering, direct filtering is fine.
+    // If you want to persist filters in URL and make backend filter, you'd use router.get
+    // For now, this is client-side filtering.
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-        }).format(amount);
-    };
+    const uniqueSuppliers = useMemo(() => {
+        const suppliers = new Set(purchaseDetails.map(detail => detail.supplier));
+        return ["all", ...Array.from(suppliers)];
+    }, [purchaseDetails]);
 
-    const getStockDisplayText = (jumlah: number, kemasan: string) => {
-        if (jumlah === 0) {
-            return `Habis (${kemasan})`;
-        }
-        if (jumlah === 1) {
-            return `Tersisa 1 ${kemasan}`;
-        }
-        return `${jumlah} ${kemasan}`;
+    const uniqueCategories = useMemo(() => {
+        const categories = new Set(purchaseDetails.map(detail => detail.kategori_produk).filter(Boolean) as string[]);
+        return ["all", ...Array.from(categories)];
+    }, [purchaseDetails]);
+    
+    const filteredPurchaseDetails = useMemo(() => {
+        return purchaseDetails.filter(detail => {
+            const nameMatch = detail.nama_produk.toLowerCase().includes(searchTerm.toLowerCase());
+            const supplierMatch = selectedSupplier === 'all' || detail.supplier === selectedSupplier;
+            const categoryMatch = selectedCategory === 'all' || detail.kategori_produk === selectedCategory;
+            return nameMatch && supplierMatch && categoryMatch;
+        });
+    }, [purchaseDetails, searchTerm, selectedSupplier, selectedCategory]);
+
+
+    const transformToProductCardData = (detail: PurchaseDetailProps): ProductCardData => {
+        return {
+            id: detail.id,
+            nama_produk: detail.nama_produk,
+            nama_supplier: detail.supplier,
+            stok_tersedia: detail.jumlah,
+            harga_beli: detail.harga_satuan,
+            harga_jual: 0, // Selling price would typically come from the main 'produks' table
+            tanggal_kadaluarsa: detail.expired || undefined, // Use OR to default null to undefined
+            kategori: detail.kategori_produk || undefined, // Use OR to default null to undefined
+            is_listed_as_product: detail.is_listed_as_product,
+        };
     };
 
     return (
         <AppLayout>
-            <Head title="Purchased Products" />
+            <Head title="Gudang (Purchased Items)" />
             
-            <div className="container mx-auto py-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-2xl font-bold">Purchased Products</h1>
+            <div className="container mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gudang - Item Pembelian</h1>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Daftar item yang telah dibeli dan tersedia di gudang. Telusuri atau filter untuk menemukan item.
+                        </p>
+                    </div>
                 </div>
 
+                {/* Search and Filter Section */}
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle className="text-lg flex items-center">
+                            <FilterIcon className="mr-2 h-5 w-5" />
+                            Filter & Pencarian
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="relative">
+                            <Input 
+                                type="text"
+                                placeholder="Cari nama produk..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10"
+                            />
+                            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        </div>
+                        <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Semua Supplier" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {uniqueSuppliers.map(supplier => (
+                                    <SelectItem key={supplier} value={supplier}>
+                                        {supplier === 'all' ? 'Semua Supplier' : supplier}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Semua Kategori" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {uniqueCategories.map(category => (
+                                    <SelectItem key={category} value={category}>
+                                        {category === 'all' ? 'Semua Kategori' : category}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </CardContent>
+                </Card>
+
+
                 {purchaseDetails.length > 0 && (
-                    <div className="mb-4 p-4 bg-gray-800 text-white rounded-md shadow">
+                    <div className="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-md shadow-sm dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-300">
                         {(() => {
-                            const totalItems = purchaseDetails.length;
-                            const itemsListedAsProduct = purchaseDetails.filter(d => d.is_listed_as_product).length;
-                            if (itemsListedAsProduct === totalItems) {
-                                return "All purchased items are currently listed as products.";
+                            const totalItems = purchaseDetails.length; // Original total
+                            const listedInOriginal = purchaseDetails.filter(d => d.is_listed_as_product).length;
+                            const displayedItems = filteredPurchaseDetails.length;
+                            
+                            let message = `${displayedItems} dari ${totalItems} item pembelian ditampilkan. `;
+                            message += `${listedInOriginal} dari total ${totalItems} item telah terdaftar sebagai produk.`;
+                            if (listedInOriginal < totalItems) {
+                                message += " Item yang belum terdaftar mungkin perlu ditambahkan ke daftar produk utama.";
                             }
-                            return `${itemsListedAsProduct} / ${totalItems} purchased items are listed as products.`;
+                            return message;
                         })()}
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {purchaseDetails.map((detail) => {
-                        const daysUntilExpiry = getDaysUntilExpiry(detail.expired);
-                        const expiryBadgeColor = getExpiryBadgeColor(daysUntilExpiry);
-                        const cardClasses = `hover:shadow-lg transition-shadow ${
-                            detail.is_listed_as_product ? 'border-2 border-green-500' : ''
-                        } ${detail.is_directly_linked_to_product && detail.jumlah === 0 ? 'opacity-60' : ''}`;
-
-
-                        return (
-                            <Card key={detail.id} className={cardClasses}>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">
-                                        {detail.nama_produk}
-                                        {detail.is_listed_as_product && !detail.is_directly_linked_to_product && (
-                                            <Badge variant="outline" className="ml-2 bg-yellow-500 text-black">Name Match</Badge>
-                                        )}
-                                        {detail.is_directly_linked_to_product && (
-                                            <Badge variant="outline" className="ml-2 bg-green-500 text-white">Linked</Badge>
-                                        )}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <ScrollArea className="h-[200px]">
-                                        <div className="space-y-2">
-                                            <div>
-                                                <span className="font-semibold">Supplier:</span>
-                                                <p className="text-sm">{detail.supplier}</p>
-                                            </div>
-                                            <div>
-                                                <span className="font-semibold">Purchase Info:</span>
-                                                <p className="text-sm">
-                                                    No: {detail.purchase_no}<br />
-                                                    Date: {detail.purchase_date}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <span className="font-semibold">Stock:</span>
-                                                <p className={`text-sm ${detail.jumlah === 0 ? 'text-red-500 font-semibold' : ''}`}>
-                                                    {getStockDisplayText(detail.jumlah, detail.kemasan)}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <span className="font-semibold">Price:</span>
-                                                <p className="text-sm">
-                                                    Unit: {formatCurrency(detail.harga_satuan)}<br />
-                                                    Total: {formatCurrency(detail.total)}
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <span className="font-semibold">Expiry:</span><br />
-                                                <Badge variant={expiryBadgeColor}>
-                                                    {detail.expired ? (
-                                                        <>
-                                                            {detail.expired}
-                                                            {daysUntilExpiry !== null && (
-                                                                <span className="ml-1">
-                                                                    ({daysUntilExpiry} days {daysUntilExpiry < 0 ? 'ago' : 'left'})
-                                                                </span>
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        'No expiry date'
-                                                    )}
-                                                </Badge>
-                                            </div>
-                                        </div>
-                                    </ScrollArea>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-                </div>
+                {filteredPurchaseDetails.length === 0 ? (
+                    <div className="text-center py-12">
+                        <Package size={48} className="mx-auto text-gray-400 dark:text-gray-500 mb-4" />
+                        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
+                            {searchTerm || selectedSupplier !== 'all' || selectedCategory !== 'all' 
+                                ? "Tidak ada item yang cocok" 
+                                : "Belum Ada Item di Gudang"}
+                        </h3>
+                        <p className="text-gray-500 dark:text-gray-400">
+                            {searchTerm || selectedSupplier !== 'all' || selectedCategory !== 'all' 
+                                ? "Coba ubah filter atau kata kunci pencarian Anda."
+                                : "Data item dari pembelian akan muncul di sini."}
+                        </p>
+                        {!searchTerm && selectedSupplier === 'all' && selectedCategory === 'all' && (
+                             <Link href={route('purchases.create')}>
+                                <Button className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Catat Pembelian Baru
+                                </Button>
+                            </Link>
+                        )}
+                    </div>
+                ) : (
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+                        {filteredPurchaseDetails.map((detail) => {
+                            const productCardData = transformToProductCardData(detail);
+                            return (
+                                <ProductCard 
+                                    key={`purchase-detail-${detail.id}`} 
+                                    product={productCardData}
+                                />
+                            );
+                        })}
+                    </ul>
+                )}
             </div>
         </AppLayout>
     );

@@ -4,15 +4,16 @@ import { Sidebar } from '@/components/app-sidebar';
 import { AppHeader } from '@/components/app-header';
 import { cn } from '@/lib/utils';
 import { FlashMessage } from '@/components/flash-message';
-import { usePage } from '@inertiajs/react';
-import { type BreadcrumbItem, type PageProps } from '@/types';
+import { usePage } from '@inertiajs/react'; 
+import { type BreadcrumbItem, type PageProps } from '@/types'; 
+
 
 interface AppLayoutProps {
   breadcrumbs?: BreadcrumbItem[];
 }
 
 export function AppLayout({ children, breadcrumbs }: PropsWithChildren<AppLayoutProps>) {
-  const { flash, success, error } = usePage<PageProps>().props;
+  const { flash, success, error } = usePage<PageProps>().props; 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [breakpoint, setBreakpoint] = useState<'mobile'|'tablet'|'desktop'>('desktop');
 
@@ -58,11 +59,11 @@ export function AppLayout({ children, breadcrumbs }: PropsWithChildren<AppLayout
         <AppHeader />
         
         <main className="flex-grow p-4">
-          {/* Notifikasi flash message global */}
           <FlashMessage flash={flash || (success ? { type: 'success', message: success } : error ? { type: 'error', message: error } : null)} />
           {children}
         </main>
       </div>
+      {/* FloatingDock and related logic removed */}
     </div>
   );
 }

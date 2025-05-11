@@ -1,9 +1,12 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type PaginatedResponse, type Category } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Head, Link, usePage, router } from '@inertiajs/react'; // Added router
+import { Plus, Edit, Trash2 } from 'lucide-react'; // Added Edit, Trash2
+import { useState } from 'react'; // Added useState
 
 import { Button } from '@/components/ui/button';
+import { ActionButton } from '@/components/action-button'; // Added ActionButton
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'; // Added DeleteConfirmationDialog
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/pagination'; // Asumsi ada komponen pagination
@@ -11,6 +14,7 @@ import { FlashMessage } from '@/components/flash-message'; // Asumsi ada kompone
 
 interface CategoriesIndexProps {
     categories: PaginatedResponse<Category>;
+    [key: string]: any; // Add index signature
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -20,6 +24,32 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function CategoriesIndex() {
     const { categories, flash } = usePage<CategoriesIndexProps>().props;
+    const [deleteDialog, setDeleteDialog] = useState({
+        isOpen: false,
+        categoryId: 0,
+        categoryName: '',
+    });
+
+    const handleDeleteClick = (id: number, name: string) => {
+        setDeleteDialog({
+            isOpen: true,
+            categoryId: id,
+            categoryName: name,
+        });
+    };
+
+    const handleDeleteConfirm = () => {
+        router.delete(route('categories.destroy', deleteDialog.categoryId), {
+            onSuccess: () => {
+                setDeleteDialog({ isOpen: false, categoryId: 0, categoryName: '' });
+                // Optionally, show a success toast here if you have a toast system
+            },
+            onError: () => {
+                // Optionally, show an error toast here
+                setDeleteDialog({ isOpen: false, categoryId: 0, categoryName: '' });
+            }
+        });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -56,21 +86,23 @@ export default function CategoriesIndex() {
                                     <TableRow key={category.id}>
                                         <TableCell>{category.id}</TableCell>
                                         <TableCell className="font-medium">{category.name}</TableCell>
-                                        <TableCell className="text-right space-x-2">
-                                            <Link href={route('categories.edit', category.id)}>
-                                                <Button variant="outline" size="sm">
-                                                    Edit
-                                                </Button>
-                                            </Link>
-                                            <Link
-                                                href={route('categories.destroy', category.id)}
-                                                method="delete"
-                                                as="button"
-                                                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-3"
-                                                onBefore={() => confirm('Are you sure you want to delete this category?')}
-                                            >
-                                                Delete
-                                            </Link>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <ActionButton
+                                                    icon={Edit}
+                                                    tooltip="Edit Category"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('categories.edit', category.id))}
+                                                />
+                                                <ActionButton
+                                                    icon={Trash2}
+                                                    tooltip="Delete Category"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteClick(category.id, category.name)}
+                                                />
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -86,6 +118,13 @@ export default function CategoriesIndex() {
                     <Pagination links={categories.links} meta={categories.meta} className="mt-4"/>
                 </CardContent>
             </Card>
+            <DeleteConfirmationDialog
+                isOpen={deleteDialog.isOpen}
+                onClose={() => setDeleteDialog({ isOpen: false, categoryId: 0, categoryName: '' })}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Category"
+                description={`Are you sure you want to delete the category "${deleteDialog.categoryName}"? This action cannot be undone.`}
+            />
         </AppLayout>
     );
-} 
+}

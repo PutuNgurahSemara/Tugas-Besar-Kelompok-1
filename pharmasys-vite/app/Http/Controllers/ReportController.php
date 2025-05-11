@@ -83,16 +83,16 @@ class ReportController extends Controller
         $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date')) : Carbon::now()->startOfMonth();
         $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date')) : Carbon::now()->endOfMonth();
         
-        $supplierId = $request->input('supplier_id');
+        $supplierId = $request->input('supplier_id'); // This might be 'all', an ID, or empty
 
         $purchasesQuery = Purchase::with(['supplier', 'category', 'details'])
-                             ->whereBetween('created_at', [$startDate, $endDate]);
+                             ->whereBetween('purchases.created_at', [$startDate, $endDate]); // Specify table for created_at
         
-        if ($supplierId) {
-            $purchasesQuery->where('supplier_id', $supplierId);
+        if ($supplierId && $supplierId !== 'all' && $supplierId !== '') {
+            $purchasesQuery->where('purchases.supplier_id', $supplierId); // Specify table for supplier_id
         }
         
-        $purchases = $purchasesQuery->latest()->paginate(10);
+        $purchases = $purchasesQuery->latest('purchases.created_at')->paginate(10); // Specify table for ordering
 
         // Chart data: pembelian per hari dalam range tanggal
         $dailyPurchases = DB::table('purchase_details')
@@ -187,39 +187,105 @@ class ReportController extends Controller
     // Fungsi untuk mengekspor laporan purchase ke Excel
     public function exportPurchaseExcel(Request $request)
     {
-        $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date')) : Carbon::now()->startOfMonth();
-        $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date')) : Carbon::now()->endOfMonth();
-        $supplierId = $request->input('supplier_id');
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'supplier_id' => 'nullable|string', // Can be 'all', an ID, or empty
+            'report_type' => 'required|string|in:detail,summary',
+        ]);
 
-        return Excel::download(new PurchaseReportExport($startDate, $endDate, $supplierId), 'laporan-pembelian.xlsx');
+        $startDate = Carbon::parse($validated['start_date']);
+        $endDate = Carbon::parse($validated['end_date']);
+        $supplierId = $validated['supplier_id'] ?? null;
+        $reportType = $validated['report_type'];
+        
+        $timestamp = now()->format('Ymd_His');
+        $filename = "laporan_pembelian_{$reportType}_{$timestamp}.xlsx";
+        $exportClass = null;
+
+        if ($reportType === 'detail') {
+            $exportClass = new \App\Exports\PurchaseReportExport($startDate, $endDate, $supplierId);
+        } elseif ($reportType === 'summary') {
+            $exportClass = new \App\Exports\PurchaseOrderSummaryExport($startDate, $endDate, $supplierId);
+        } else {
+            return redirect()->back()->withErrors(['report_type' => 'Jenis laporan tidak valid.']);
+        }
+        
+        try {
+            return Excel::download($exportClass, $filename);
+        } catch (\Exception $e) {
+            Log::error("Excel Export Error: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Export Excel gagal: ' . $e->getMessage());
+        }
     }
 
     // Fungsi untuk mengekspor laporan purchase ke PDF
     public function exportPurchasePDF(Request $request)
     {
-        $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date')) : Carbon::now()->startOfMonth();
-        $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date')) : Carbon::now()->endOfMonth();
-        $supplierId = $request->input('supplier_id');
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'supplier_id' => 'nullable|string', // Can be 'all', an ID, or empty
+            'report_type' => 'required|string|in:detail,summary', // Assuming PDF also needs report type
+        ]);
 
+        $startDate = Carbon::parse($validated['start_date']);
+        $endDate = Carbon::parse($validated['end_date']);
+        $supplierId = $validated['supplier_id'] ?? null;
+        $reportType = $validated['report_type']; // Added report_type
+
+        // Note: PDF export logic needs to be significantly different for summary vs detail
+        // The current PDF export is for a detailed list.
+        // A new Blade view or modified logic would be needed for a summary PDF.
+        // For now, this will only correctly export 'detail' type to PDF using existing structure.
+        // If 'summary' is chosen for PDF, it will attempt to use the 'detail' structure.
+
+        if ($reportType === 'summary') {
+            // Placeholder: PDF for summary report needs a different view/logic
+            // For now, let's use the PurchaseOrderSummaryExport data and a generic view or adapt.
+            // This is a simplified approach; a dedicated PDF view for summary is better.
+            $exportData = (new \App\Exports\PurchaseOrderSummaryExport($startDate, $endDate, $supplierId))->collection();
+            $headings = (new \App\Exports\PurchaseOrderSummaryExport($startDate, $endDate, $supplierId))->headings();
+            // You would need a Blade view like 'exports.purchase-summary-report.blade.php'
+            // $pdf = PDF::loadView('exports.purchase-summary-report', compact('exportData', 'headings', 'startDate', 'endDate'));
+            // return $pdf->download("laporan_ringkasan_pembelian_{$timestamp}.pdf");
+            return redirect()->back()->with('error', 'PDF export untuk laporan ringkasan belum diimplementasikan sepenuhnya.');
+        }
+
+        // Existing detail PDF export logic
         $query = DB::table('purchase_details')
             ->join('purchases', 'purchase_details.purchase_id', '=', 'purchases.id')
             ->join('suppliers', 'purchases.supplier_id', '=', 'suppliers.id')
             ->whereBetween('purchases.created_at', [$startDate, $endDate]);
 
-        if ($supplierId && $supplierId !== 'all') {
+        if ($supplierId && $supplierId !== 'all' && $supplierId !== '') {
             $query->where('purchases.supplier_id', $supplierId);
         }
 
-        $purchases = $query->select([
-            'purchases.id',
-            'purchases.created_at',
+        // This query is for the *detailed* PDF report.
+        $purchaseDetails = $query->select([
+            'purchases.id as purchase_id_col',
+            'purchases.no_faktur',
+            'purchases.created_at as purchase_created_at',
             'suppliers.company as supplier_name',
             'purchase_details.nama_produk',
+            'purchase_details.expired',
+            'purchase_details.jumlah',
+            'purchase_details.kemasan',
             'purchase_details.harga_satuan',
-            'purchase_details.jumlah'
-        ])->get();
+            'purchase_details.total as detail_total'
+        ])->orderBy('purchases.created_at')->orderBy('purchase_details.id')->get();
+        
+        $timestamp = now()->format('Ymd_His');
+        $filename = "laporan_detail_pembelian_{$timestamp}.pdf";
 
-        $pdf = PDF::loadView('exports.purchase-report', compact('purchases', 'startDate', 'endDate'));
-        return $pdf->download('laporan-pembelian.pdf');
+        try {
+            // Assuming 'exports.purchase-report' is the Blade view for the detailed PDF.
+            $pdf = PDF::loadView('exports.purchase-report', compact('purchaseDetails', 'startDate', 'endDate', 'supplierId'));
+            return $pdf->download($filename);
+        } catch (\Exception $e) {
+            Log::error("PDF Export Error: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Export PDF gagal: ' . $e->getMessage());
+        }
     }
 }

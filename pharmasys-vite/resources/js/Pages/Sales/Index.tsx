@@ -2,9 +2,11 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type PaginatedResponse, type Sale, type User, type SaleItem, type Produk } from '@/types';
 import { Head, Link, usePage, router } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Plus, Eye, Trash2 } from 'lucide-react'; // Added Eye, Trash2
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ActionButton } from '@/components/action-button'; // Added ActionButton
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'; // Added DeleteConfirmationDialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/pagination';
 import { FlashMessage } from '@/components/flash-message';
@@ -25,7 +27,8 @@ interface SalesIndexProps {
     filters: { 
         search: string | null;
         perPage: number;
-    }
+    };
+    [key: string]: any; // Add index signature
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -36,6 +39,28 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function SalesIndex() {
     const { sales: salesData, flash, filters } = usePage<SalesIndexProps>().props;
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
+    const [deleteDialog, setDeleteDialog] = useState({
+        isOpen: false,
+        saleId: 0,
+    });
+
+    const handleDeleteClick = (id: number) => {
+        setDeleteDialog({
+            isOpen: true,
+            saleId: id,
+        });
+    };
+
+    const handleDeleteConfirm = () => {
+        router.delete(route('sales.destroy', deleteDialog.saleId), {
+            onSuccess: () => {
+                setDeleteDialog({ isOpen: false, saleId: 0 });
+            },
+            onError: () => {
+                setDeleteDialog({ isOpen: false, saleId: 0 });
+            }
+        });
+    };
 
     const reloadData = useCallback(
         debounce((query, perPage) => {
@@ -113,21 +138,24 @@ export default function SalesIndex() {
                                         <TableCell>Rp {sale.total_price?.toLocaleString('id-ID') ?? '-'}</TableCell> 
                                         <TableCell>{sale.created_at ? format(new Date(sale.created_at), 'dd MMM yyyy, HH:mm') : '-'}</TableCell>
                                         <TableCell>{sale.user?.name ?? '-'}</TableCell>
-                                        <TableCell className="text-right space-x-2">
-                                             {/* Tombol View Detail (jika ada halaman show) */}
-                                            {/* <Link href={route('sales.show', sale.id)}>
-                                                <Button variant="outline" size="sm">View</Button>
-                                            </Link> */}
-                                            {/* Tombol Delete/Cancel (jika diperlukan) */}
-                                            <Link
-                                                href={route('sales.destroy', sale.id)}
-                                                method="delete"
-                                                as="button"
-                                                onBefore={() => confirm('Are you sure? This action might not be reversible.')}
-                                                className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-red-500 hover:bg-red-600 text-white px-3 py-2"
-                                            >
-                                                Delete
-                                            </Link>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {/* Assuming a sales.show route exists for viewing details */}
+                                                <ActionButton
+                                                    icon={Eye}
+                                                    tooltip="View Details"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('sales.show', sale.id))}
+                                                />
+                                                <ActionButton
+                                                    icon={Trash2}
+                                                    tooltip="Delete Sale"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteClick(sale.id)}
+                                                />
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -143,6 +171,13 @@ export default function SalesIndex() {
                     <Pagination links={salesData.links} meta={salesData.meta} className="mt-4"/>
                 </CardContent>
             </Card>
+            <DeleteConfirmationDialog
+                isOpen={deleteDialog.isOpen}
+                onClose={() => setDeleteDialog({ isOpen: false, saleId: 0 })}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Sale"
+                description={`Are you sure you want to delete this sale (ID: ${deleteDialog.saleId})? This action might not be reversible.`}
+            />
         </AppLayout>
     );
-} 
+}

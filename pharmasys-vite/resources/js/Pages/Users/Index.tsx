@@ -1,7 +1,8 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type PaginatedResponse, type User, type Role } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Head, Link, usePage, router } from '@inertiajs/react'; // Added router
+import { Plus, Edit, Trash2 } from 'lucide-react'; // Added Edit, Trash2
+import { useState } from 'react'; // Added useState
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,13 +13,18 @@ import { useInitials } from '@/hooks/use-initials';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
+import { ActionButton } from '@/components/action-button'; // Added ActionButton
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog'; // Added DeleteConfirmationDialog
 
 interface UserWithRoles extends User {
     roles: Role[];
+    created_at?: string; // Ensure created_at is part of the type if used directly
 }
 
 interface UsersIndexProps {
     users: PaginatedResponse<UserWithRoles>;
+    auth: { user: User }; // For checking current user ID
+    [key: string]: any; // Add index signature
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -28,8 +34,32 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function UsersIndex() {
-    const { users: usersData, flash, auth } = usePage<UsersIndexProps & { auth: { user: User } }>().props;
+    const { users: usersData, flash, auth } = usePage<UsersIndexProps>().props;
     const getInitials = useInitials();
+    const [deleteDialog, setDeleteDialog] = useState({
+        isOpen: false,
+        userId: 0,
+        userName: '',
+    });
+
+    const handleDeleteClick = (id: number, name: string) => {
+        setDeleteDialog({
+            isOpen: true,
+            userId: id,
+            userName: name,
+        });
+    };
+
+    const handleDeleteConfirm = () => {
+        router.delete(route('users.destroy', deleteDialog.userId), {
+            onSuccess: () => {
+                setDeleteDialog({ isOpen: false, userId: 0, userName: '' });
+            },
+            onError: () => {
+                setDeleteDialog({ isOpen: false, userId: 0, userName: '' });
+            }
+        });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -93,21 +123,25 @@ export default function UsersIndex() {
                                         <TableCell>{user.email}</TableCell>
                                         <TableCell>{user.roles?.map(role => role.name).join(', ') || '-'}</TableCell>
                                         <TableCell>{user.created_at ? format(new Date(user.created_at), 'dd MMM yyyy') : '-'}</TableCell>
-                                        <TableCell className="text-right space-x-2">
-                                            <Link href={route('users.edit', user.id)}>
-                                                <Button variant="outline" size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">Edit</Button>
-                                            </Link>
-                                            {user.id !== auth.user.id && (
-                                                <Link
-                                                    href={route('users.destroy', user.id)}
-                                                    method="delete"
-                                                    as="button"
-                                                    onBefore={() => confirm('Are you sure?')}
-                                                    className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-red-500 hover:bg-red-600 text-white px-3 py-2"
-                                                >
-                                                    Delete
-                                                </Link>
-                                            )}
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <ActionButton
+                                                    icon={Edit}
+                                                    tooltip="Edit User"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => router.visit(route('users.edit', user.id))}
+                                                />
+                                                {user.id !== auth.user.id && ( // Prevent deleting self
+                                                    <ActionButton
+                                                        icon={Trash2}
+                                                        tooltip="Delete User"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteClick(user.id, user.name)}
+                                                    />
+                                                )}
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -123,6 +157,13 @@ export default function UsersIndex() {
                     <Pagination links={usersData.links} meta={usersData.meta} className="mt-4"/>
                 </CardContent>
             </Card>
+            <DeleteConfirmationDialog
+                isOpen={deleteDialog.isOpen}
+                onClose={() => setDeleteDialog({ isOpen: false, userId: 0, userName: '' })}
+                onConfirm={handleDeleteConfirm}
+                title="Delete User"
+                description={`Are you sure you want to delete the user "${deleteDialog.userName}"? This action cannot be undone.`}
+            />
         </AppLayout>
     );
-} 
+}

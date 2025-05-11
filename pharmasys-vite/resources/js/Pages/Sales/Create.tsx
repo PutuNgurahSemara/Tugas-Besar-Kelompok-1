@@ -53,6 +53,7 @@ export default function SalesCreate() {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showErrorModal, setShowErrorModal] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const [animateCartPulse, setAnimateCartPulse] = useState(false);
 
     const { data, setData, post, errors, processing, reset } = useForm({
         payment_method: 'Cash',
@@ -69,10 +70,12 @@ export default function SalesCreate() {
 
     // Tambah produk ke keranjang
     const addToCart = (product: Produk) => {
+        let itemAddedOrUpdated = false;
         setCart(currentCart => {
             const existingItem = currentCart.find((item: CartItem) => item.id === product.id);
             if (existingItem) {
                 if (existingItem.cart_quantity < (product.quantity ?? Infinity)) {
+                    itemAddedOrUpdated = true;
                     return currentCart.map((item: CartItem) =>
                         item.id === product.id
                             ? { ...item, cart_quantity: item.cart_quantity + 1 }
@@ -82,11 +85,19 @@ export default function SalesCreate() {
                 return currentCart;
             } else {
                 if ((product.quantity ?? 0) > 0) {
+                    itemAddedOrUpdated = true;
                     return [...currentCart, { ...product, cart_quantity: 1 }];
                 }
                 return currentCart;
             }
         });
+
+        if (itemAddedOrUpdated) {
+            setAnimateCartPulse(true);
+            setTimeout(() => {
+                setAnimateCartPulse(false);
+            }, 700); // Duration of the pulse effect
+        }
     };
 
     // Update kuantitas di keranjang
@@ -190,7 +201,7 @@ export default function SalesCreate() {
                                 {filteredProducts.map((product: Produk) => (
                                     <Card
                                         key={product.id}
-                                        className={`overflow-hidden cursor-pointer hover:shadow-lg transition-shadow ${product.quantity === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        className={`overflow-hidden cursor-pointer transition-all duration-300 ease-in-out hover:scale-102 hover:shadow-lg dark:hover:border-slate-700 ${product.quantity === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         onClick={() => product.quantity !== 0 && addToCart(product)}
                                         title={product.quantity === 0 ? t('out.of.stock') : `${t('add.to.cart')}: ${product.nama}`}
                                     >
@@ -215,7 +226,7 @@ export default function SalesCreate() {
                 </Card>
 
                 {/* Kolom Keranjang & Pembayaran (Kanan) */}
-                <Card>
+                <Card className={`transition-colors duration-300 ease-in-out ${animateCartPulse ? 'border-green-500 border-2' : ''}`}>
                     <CardHeader>
                         <CardTitle>{t('cart')}</CardTitle>
                     </CardHeader>
