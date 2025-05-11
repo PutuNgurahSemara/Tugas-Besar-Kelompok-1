@@ -36,6 +36,8 @@ class RolesAndPermissionsSeeder extends Seeder
           'view-role','edit-role','destroy-role','create-role',
           'view-permission','create-permission','edit-permission','destroy-permission',
           'view-expired-products','view-outstock-products','backup-app','backup-db','view-settings',
+          'import-purchase', // Added permission for importing purchases
+          'export-purchase', // Added permission for exporting purchases
 
         ];
        $permissions = collect($arrayOfPermissionNames)->map(function ($permission) {

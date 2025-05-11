@@ -62,6 +62,9 @@ class ReportController extends Controller
                                 ->groupBy('produk.nama')
                                 ->orderBy('total_quantity', 'desc')
                                 ->first(),
+            'today_sales' => Sale::whereDate('created_at', Carbon::today())->sum('total_price'),
+            'current_month_sales' => Sale::whereMonth('created_at', Carbon::now()->month)->whereYear('created_at', Carbon::now()->year)->sum('total_price'),
+            'current_year_sales' => Sale::whereYear('created_at', Carbon::now()->year)->sum('total_price'),
         ];
 
         return Inertia::render('Reports/Sales', [
@@ -136,6 +139,9 @@ class ReportController extends Controller
                                 ->groupBy('suppliers.company')
                                 ->orderBy('total_amount', 'desc')
                                 ->first(),
+            'today_purchases' => Purchase::whereDate('tanggal_faktur', Carbon::today())->sum('total'), // Using purchase total
+            'current_month_purchases' => Purchase::whereMonth('tanggal_faktur', Carbon::now()->month)->whereYear('tanggal_faktur', Carbon::now()->year)->sum('total'),
+            'current_year_purchases' => Purchase::whereYear('tanggal_faktur', Carbon::now()->year)->sum('total'),
         ];
 
         $suppliers = Supplier::orderBy('company')->get(['id', 'company as name']);

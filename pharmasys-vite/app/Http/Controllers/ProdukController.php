@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
 use App\Models\SaleItem;
+use App\Models\Setting; // Added Setting model
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
@@ -80,6 +81,7 @@ class ProdukController extends Controller
     public function create()
     {
         $categories = Category::orderBy('name')->get(['id', 'name']);
+        $defaultProfitMargin = (float) Setting::getValue('default_profit_margin', 20); // Get default margin
         
         // Get purchase details with available stock
         $purchaseDetails = PurchaseDetail::with(['purchase'])
@@ -121,7 +123,8 @@ class ProdukController extends Controller
         return Inertia::render('Produk/Create', [
             'categories' => $categories,
             'availablePurchaseDetails' => $availablePurchaseDetails,
-            'existingProductsData' => $existingProductsData // Changed from existingProductNames
+            'existingProductsData' => $existingProductsData, // Changed from existingProductNames
+            'defaultProfitMargin' => $defaultProfitMargin, // Pass to view
         ]);
     }
 
@@ -235,6 +238,7 @@ class ProdukController extends Controller
     public function edit(Produk $produk)
     {
         $categories = Category::orderBy('name')->get(['id', 'name']);
+        $defaultProfitMargin = (float) Setting::getValue('default_profit_margin', 20); // Get default margin
         
         // Eager load relations
         $produk->load(['category', 'purchaseDetails']);
@@ -285,6 +289,7 @@ class ProdukController extends Controller
             'availablePurchaseDetails' => $formattedPurchaseDetails,
             'totalStock' => $totalStock,
             'currentPurchaseDetails' => $currentPurchaseDetails,
+            'defaultProfitMargin' => $defaultProfitMargin, // Pass to view
         ]);
     }
 

@@ -152,14 +152,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Settings dengan middleware permission
     Route::middleware('permission:view-settings')->group(function() {
-        Route::get('/settings', function () {
-            // Kirim data dummy atau kosong jika perlu
-            $dummySettings = [
-                'app_name' => 'Settings Direct Test'
-            ];
-            // Langsung render view Inertia
-            return Inertia::render('Settings/Index', ['settings' => $dummySettings]); 
-        })->name('settings.index');
+        Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
         Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
     });
 });

@@ -23,10 +23,12 @@ interface PurchaseCreateProps extends PageProps {
 interface DetailItem {
     nama_produk: string;
     expired: string;
-    jumlah: string;
-    kemasan: string;
-    harga_satuan: string;
-    total: string;
+    jumlah: string; // QTY
+    kemasan: string; // SATUAN
+    harga_satuan: string; // HARGA SATUAN
+    gross: string; // QTY * HARGA SATUAN (auto-calculated)
+    discount_percentage: string; // DISC (%) (input)
+    sub_total: string; // GROSS - (GROSS * DISC (%)) (auto-calculated, formerly 'total')
     [key: string]: string;
 }
 
@@ -58,7 +60,9 @@ export default function PurchaseCreate() {
             jumlah: '',
             kemasan: '',
             harga_satuan: '',
-            total: '',
+            gross: '0',
+            discount_percentage: '0',
+            sub_total: '0',
         },
     ]);
     const [processing, setProcessing] = useState(false);
@@ -72,9 +76,9 @@ export default function PurchaseCreate() {
     const jumlahProduk = details.length;
 
     // Calculate totals for display
-    const subTotalDisplay = details.reduce((sum, d) => sum + (parseFloat(d.total) || 0), 0);
+    const subTotalDisplay = details.reduce((sum, d) => sum + (parseFloat(d.sub_total) || 0), 0); // DPP
     const ppnAmountDisplay = (subTotalDisplay * (parseFloat(ppnPercentage) || 0)) / 100;
-    const grandTotalDisplay = subTotalDisplay + ppnAmountDisplay;
+    const grandTotalDisplay = subTotalDisplay + ppnAmountDisplay; // Harus Dibayar
 
     // Jika tanggal pembayaran diisi, status otomatis 'PAID'
     useEffect(() => {
@@ -90,10 +94,18 @@ export default function PurchaseCreate() {
         const newDetails = [...details];
         const field = e.target.name as keyof DetailItem;
         newDetails[index][field] = e.target.value;
-        // Hitung total otomatis jika jumlah & harga_satuan diisi
-        if ((field === 'jumlah' || field === 'harga_satuan') && newDetails[index].jumlah && newDetails[index].harga_satuan) {
-            newDetails[index].total = (parseFloat(newDetails[index].jumlah) * parseFloat(newDetails[index].harga_satuan)).toString();
-        }
+
+        const qty = parseFloat(newDetails[index].jumlah) || 0;
+        const unitPrice = parseFloat(newDetails[index].harga_satuan) || 0;
+        const discPercentage = parseFloat(newDetails[index].discount_percentage) || 0;
+
+        const gross = qty * unitPrice;
+        newDetails[index].gross = gross.toFixed(2);
+
+        const discountAmount = (gross * discPercentage) / 100;
+        const subTotal = gross - discountAmount;
+        newDetails[index].sub_total = subTotal.toFixed(2);
+        
         setDetails(newDetails);
     };
     // Tambah baris detail produk
@@ -106,7 +118,9 @@ export default function PurchaseCreate() {
                 jumlah: '',
                 kemasan: '',
                 harga_satuan: '',
-                total: '',
+                gross: '0',
+                discount_percentage: '0',
+                sub_total: '0',
             },
         ]);
     };
@@ -138,17 +152,21 @@ export default function PurchaseCreate() {
             jatuh_tempo: header.jatuh_tempo,
             keterangan: header.keterangan,
             supplier_id: header.supplier_id,
-            jumlah: details.length, 
+            jumlah: details.length,
             tanggal_pembayaran: tanggalPembayaran || null,
-            ppn_percentage: parseFloat(ppnPercentage) || 0, // Add PPN percentage to submission
+            ppn_percentage: parseFloat(ppnPercentage) || 0,
             details: details.map(detail => ({
-                ...detail,
+                nama_produk: detail.nama_produk,
+                expired: detail.expired,
                 jumlah: parseInt(detail.jumlah) || 0,
+                kemasan: detail.kemasan,
                 harga_satuan: parseFloat(detail.harga_satuan) || 0,
-                total: parseFloat(detail.total) || 0,
+                gross: parseFloat(detail.gross) || 0,
+                discount_percentage: parseFloat(detail.discount_percentage) || 0,
+                total: parseFloat(detail.sub_total) || 0, // 'total' in backend is item's sub_total
             })),
         };
-        
+
         router.post(route('purchases.store'), formData as any, {
             onSuccess: () => {
                 setAlert({ type: 'success', message: 'Pembelian berhasil disimpan!' });
@@ -266,33 +284,41 @@ export default function PurchaseCreate() {
                         <div className="mt-8">
                             <h3 className="font-semibold mb-2">Detail Produk</h3>
                             {details.map((detail, idx) => (
-                                <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-2 items-end border p-2 rounded relative">
-                                    <div>
-                                        <Label>Nama Produk</Label>
-                                        <Input name="nama_produk" value={detail.nama_produk} onChange={e => handleDetailChange(idx, e)} required />
+                                <div key={idx} className="grid grid-cols-1 md:grid-cols-8 gap-2 mb-3 items-end border p-3 rounded-lg relative shadow-sm">
+                                    <div className="md:col-span-2"> {/* Nama Produk wider */}
+                                        <Label htmlFor={`nama_produk_${idx}`}>Nama Produk (URAIAN)</Label>
+                                        <Input id={`nama_produk_${idx}`} name="nama_produk" value={detail.nama_produk} onChange={e => handleDetailChange(idx, e)} required />
                                     </div>
                                     <div>
-                                        <Label>Expired</Label>
-                                        <Input name="expired" type="date" value={detail.expired} onChange={e => handleDetailChange(idx, e)} required />
+                                        <Label htmlFor={`jumlah_${idx}`}>QTY (JUMLAH)</Label>
+                                        <Input id={`jumlah_${idx}`} name="jumlah" type="number" value={detail.jumlah} onChange={e => handleDetailChange(idx, e)} required />
                                     </div>
                                     <div>
-                                        <Label>Jumlah</Label>
-                                        <Input name="jumlah" type="number" value={detail.jumlah} onChange={e => handleDetailChange(idx, e)} required />
+                                        <Label htmlFor={`expired_${idx}`}>ED</Label>
+                                        <Input id={`expired_${idx}`} name="expired" type="date" value={detail.expired} onChange={e => handleDetailChange(idx, e)} required />
                                     </div>
                                     <div>
-                                        <Label>Kemasan</Label>
-                                        <Input name="kemasan" value={detail.kemasan} onChange={e => handleDetailChange(idx, e)} required />
+                                        <Label htmlFor={`kemasan_${idx}`}>SATUAN (KMSN)</Label>
+                                        <Input id={`kemasan_${idx}`} name="kemasan" value={detail.kemasan} onChange={e => handleDetailChange(idx, e)} required />
                                     </div>
                                     <div>
-                                        <Label>Harga Satuan</Label>
-                                        <Input name="harga_satuan" type="number" value={detail.harga_satuan} onChange={e => handleDetailChange(idx, e)} required />
+                                        <Label htmlFor={`harga_satuan_${idx}`}>HARGA SATUAN</Label>
+                                        <Input id={`harga_satuan_${idx}`} name="harga_satuan" type="number" value={detail.harga_satuan} onChange={e => handleDetailChange(idx, e)} required step="0.01"/>
                                     </div>
                                     <div>
-                                        <Label>Total</Label>
-                                        <Input name="total" type="number" value={detail.total} readOnly />
+                                        <Label htmlFor={`gross_${idx}`}>GROSS</Label>
+                                        <Input id={`gross_${idx}`} name="gross" type="number" value={detail.gross} readOnly className="bg-gray-100 dark:bg-gray-700"/>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor={`discount_percentage_${idx}`}>DISC (%)</Label>
+                                        <Input id={`discount_percentage_${idx}`} name="discount_percentage" type="number" value={detail.discount_percentage} onChange={e => handleDetailChange(idx, e)} step="0.01" min="0" max="100"/>
+                                    </div>
+                                    <div className="md:col-span-8"> {/* SUB TOTAL full width below */}
+                                        <Label htmlFor={`sub_total_${idx}`}>SUB TOTAL (Item)</Label>
+                                        <Input id={`sub_total_${idx}`} name="sub_total" type="number" value={detail.sub_total} readOnly className="bg-gray-100 dark:bg-gray-700 font-semibold"/>
                                     </div>
                                     {details.length > 1 && (
-                                        <div className="col-span-full flex justify-end">
+                                        <div className="md:col-span-8 flex justify-end pt-1">
                                             <Button
                                                 type="button"
                                                 variant="destructive"

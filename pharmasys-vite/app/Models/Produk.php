@@ -12,7 +12,7 @@ class Produk extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'produk';
+    protected $table = 'produk'; // Ensure this is 'produks' if following convention, or 'produk' if explicitly set. Assuming 'produk'.
 
     protected $fillable = [
         'nama', 
@@ -96,4 +96,29 @@ class Produk extends Model
             ->where('jumlah', '>', 0)
             ->exists();
     }
+
+    /**
+     * Check if the product is low on stock based on settings.
+     */
+    public function getIsLowStockAttribute()
+    {
+        // Ensure Setting model is used correctly
+        $lowStockThreshold = (int) \App\Models\Setting::getValue('low_stock_threshold', 10);
+        
+        // Product is low on stock if available_stock is > 0 but <= threshold
+        // and not already considered out of stock.
+        return $this->available_stock > 0 && $this->available_stock <= $lowStockThreshold;
+    }
+
+    /**
+     * Appends custom attributes to array/JSON form.
+     */
+    protected $appends = [
+        'total_stock', 
+        'available_stock', 
+        'earliest_expiry',
+        'is_out_of_stock',
+        'has_expired_items',
+        'is_low_stock' // Add the new accessor here
+    ];
 }

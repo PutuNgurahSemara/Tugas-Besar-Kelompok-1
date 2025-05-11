@@ -18,13 +18,17 @@ class PurchaseDetail extends Model
         'jumlah',
         'kemasan',
         'harga_satuan',
-        'total',
+        'gross_amount', // Added
+        'discount_percentage', // Added
+        'total', // This is item's sub_total (after discount)
     ];
 
     protected $casts = [
         'expired' => 'date',
         'jumlah' => 'integer',
         'harga_satuan' => 'float',
+        'gross_amount' => 'float', // Added
+        'discount_percentage' => 'float', // Added
         'total' => 'float',
     ];
 

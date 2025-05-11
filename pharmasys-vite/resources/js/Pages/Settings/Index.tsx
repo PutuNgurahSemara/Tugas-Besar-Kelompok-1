@@ -16,24 +16,37 @@ import { Settings as SettingsIcon, Upload, Image, Info, Globe, DollarSign } from
 interface SettingsData {
     app_name: string;
     app_currency: string;
-    app_logo?: File | null;
-    app_favicon?: File | null;
-    language?: string;
-    current_logo?: string;
-    current_favicon?: string;
-    remove_logo?: boolean;
-    remove_favicon?: boolean;
+    app_logo: File | null; // Made non-optional in type, as initialData provides null
+    app_favicon: File | null; // Made non-optional in type, as initialData provides null
+    language: string; // Made non-optional, initialData provides default
+    current_logo: string | null; // Made non-optional, initialData provides null or string
+    current_favicon: string | null; // Made non-optional, initialData provides null or string
+    remove_logo: boolean; // Made non-optional, initialData provides boolean
+    remove_favicon: boolean; // Made non-optional, initialData provides boolean
+    low_stock_threshold: number;
+    default_profit_margin: number;
+    [key: string]: any; // Keep index signature for FormDataType constraint
 }
 
-interface SettingsIndexProps {
-    settings: {
+// Define props for the page, including what Inertia provides
+interface SettingsPageProps {
+    settings: { // This is the structure coming from the controller
         app_name: string;
         app_currency: string;
         app_logo?: string | null;
         app_favicon?: string | null;
         language?: string;
+        low_stock_threshold: number;
+        default_profit_margin: number;
     };
+    flash?: {
+        success?: string;
+        error?: string;
+    };
+    errors: Record<string, string>; 
+    [key: string]: any; 
 }
+
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: route('dashboard') },
@@ -42,23 +55,27 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function SettingsIndex() {
-    const { settings, flash } = usePage<SettingsIndexProps>().props;
+    const { settings, flash, errors: pageLevelErrors } = usePage<SettingsPageProps>().props;
     const [activeTab, setActiveTab] = useState("general");
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
-
-    // Inisialisasi form dengan data setting yang ada
-    const { data, setData, post, errors, processing, reset } = useForm<SettingsData>({
-        app_name: settings.app_name || 'PharmaSys',
-        app_currency: settings.app_currency || 'Rp',
-        app_logo: null,
-        app_favicon: null,
-        language: settings.language || 'id',
-        current_logo: settings.app_logo || null,
-        current_favicon: settings.app_favicon || null,
+    
+    const initialSettingsData: SettingsData = { // Explicitly type initial data with SettingsData
+        app_name: settings.app_name ?? 'PharmaSys',
+        app_currency: settings.app_currency ?? 'Rp',
+        app_logo: null, // Initialize optional file fields with null instead of undefined
+        app_favicon: null, // Initialize optional file fields with null instead of undefined
+        language: settings.language ?? 'id',
+        current_logo: settings.app_logo ?? null,
+        current_favicon: settings.app_favicon ?? null,
         remove_logo: false,
         remove_favicon: false,
-    });
+        low_stock_threshold: settings.low_stock_threshold ?? 10,
+        default_profit_margin: settings.default_profit_margin ?? 20,
+    };
+    
+    // useForm should now be happy with SettingsData having an index signature
+    const { data, setData, post, errors: formErrors, processing, reset } = useForm<SettingsData>(initialSettingsData); 
 
     useEffect(() => {
         // Set preview untuk logo dan favicon yang sudah ada
@@ -182,7 +199,7 @@ export default function SettingsIndex() {
                                         <p className="text-sm text-gray-500 mt-1">
                                             Nama untuk aplikasi ini
                                         </p>
-                                        <InputError message={errors.app_name} className="mt-2" />
+                                        <InputError message={formErrors.app_name} className="mt-2" />
                                     </div>
                                     
                                     <div>
@@ -198,7 +215,50 @@ export default function SettingsIndex() {
                                         <p className="text-sm text-gray-500 mt-1">
                                             Simbol mata uang (contoh: Rp, $, €)
                                         </p>
-                                        <InputError message={errors.app_currency} className="mt-2" />
+                                        <InputError message={formErrors.app_currency} className="mt-2" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 pt-4 border-t mt-4">
+                                    <div>
+                                        <Label htmlFor="low_stock_threshold">Low Stock Threshold *</Label>
+                                        <Input
+                                            id="low_stock_threshold"
+                                            name="low_stock_threshold"
+                                            type="number"
+                                            value={data.low_stock_threshold}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value, 10);
+                                                setData('low_stock_threshold', isNaN(val) ? 0 : val);
+                                            }}
+                                            className="mt-1 block w-full"
+                                            required
+                                            min="0"
+                                        />
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Batas minimum stok sebelum produk ditandai "Stok Sedikit".
+                                        </p>
+                                        <InputError message={formErrors.low_stock_threshold} className="mt-2" />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="default_profit_margin">Default Profit Margin (%) *</Label>
+                                        <Input
+                                            id="default_profit_margin"
+                                            name="default_profit_margin"
+                                            type="number"
+                                            value={data.default_profit_margin}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                setData('default_profit_margin', isNaN(val) ? 0 : val);
+                                            }}
+                                            className="mt-1 block w-full"
+                                            required
+                                            min="0"
+                                            step="0.01"
+                                        />
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Margin keuntungan default untuk perhitungan harga jual produk.
+                                        </p>
+                                        <InputError message={formErrors.default_profit_margin} className="mt-2" />
                                     </div>
                                 </div>
                             </CardContent>
@@ -240,7 +300,7 @@ export default function SettingsIndex() {
                                         {logoPreview && (
                                             <Button 
                                                 type="button" 
-                                                variant="outline" 
+                                                variant="secondary"
                                                 size="sm"
                                                 onClick={handleRemoveLogo}
                                             >
@@ -248,7 +308,7 @@ export default function SettingsIndex() {
                                             </Button>
                                         )}
                                     </div>
-                                    <InputError message={errors.app_logo} className="mt-1" />
+                                    <InputError message={formErrors.app_logo} className="mt-1" />
                                 </div>
 
                                 <div>
@@ -279,7 +339,7 @@ export default function SettingsIndex() {
                                         {faviconPreview && (
                                             <Button 
                                                 type="button" 
-                                                variant="outline" 
+                                                variant="secondary"
                                                 size="sm"
                                                 onClick={handleRemoveFavicon}
                                             >
@@ -287,7 +347,7 @@ export default function SettingsIndex() {
                                             </Button>
                                         )}
                                     </div>
-                                    <InputError message={errors.app_favicon} className="mt-1" />
+                                    <InputError message={formErrors.app_favicon} className="mt-1" />
                                 </div>
                             </CardContent>
                         </Card>
@@ -323,7 +383,7 @@ export default function SettingsIndex() {
                     </TabsContent>
 
                     <div className="flex items-center justify-end space-x-4 pt-4">
-                        <Button type="button" variant="outline" onClick={() => reset()}>
+                        <Button type="button" variant="secondary" onClick={() => reset('app_name', 'app_currency', 'low_stock_threshold', 'default_profit_margin', 'language', 'app_logo', 'app_favicon', 'remove_logo', 'remove_favicon')}>
                             Reset
                         </Button>
                         <Button type="submit" disabled={processing} className="bg-green-600 hover:bg-green-700">
@@ -334,4 +394,4 @@ export default function SettingsIndex() {
             </Tabs>
         </AppLayout>
     );
-} 
+}

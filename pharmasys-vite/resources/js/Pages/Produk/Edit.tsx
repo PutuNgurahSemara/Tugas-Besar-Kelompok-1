@@ -40,6 +40,7 @@ interface ProdukEditProps extends PageProps {
         category: Category | null;
     };
     categories: Category[];
+    defaultProfitMargin: number | null; // Added defaultProfitMargin
     [key: string]: any; 
 }
 
@@ -54,7 +55,7 @@ type FormData = {
 }
 
 export default function ProdukEdit() {
-    const { produk, categories } = usePage<ProdukEditProps>().props;
+    const { produk, categories, defaultProfitMargin } = usePage<ProdukEditProps>().props;
     const [preview, setPreview] = useState<string | null>(produk.image ? `/storage/${produk.image}` : null);
     const [useCustomName, setUseCustomName] = useState<boolean>(false);
     
@@ -63,7 +64,7 @@ export default function ProdukEdit() {
         custom_nama: '', 
         category_id: produk.category_id ? String(produk.category_id) : null,
         harga: produk.harga ? String(produk.harga) : '',
-        margin: produk.margin !== null ? String(produk.margin) : '',
+        margin: produk.margin && produk.margin !== 0 ? String(produk.margin) : (defaultProfitMargin !== null ? String(defaultProfitMargin) : ''),
         image: null,
         _method: 'PUT'
     });

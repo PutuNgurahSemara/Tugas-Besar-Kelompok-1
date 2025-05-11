@@ -9,9 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/pagination';
-import { useEffect, useState } from 'react';
+import { useState } from 'react'; // useEffect might not be needed for this change
 import { router } from '@inertiajs/react';
-import { Line, Bar, Pie } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2'; // Pie not used in this component
+import { cn } from '@/lib/utils'; // Import cn for conditional classes
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -91,6 +92,9 @@ interface PurchaseReportProps {
       name: string;
       total_amount: number;
     } | null;
+    today_purchases: number;
+    current_month_purchases: number;
+    current_year_purchases: number;
   };
   [key: string]: any; // Add index signature for PageProps compatibility
 }
@@ -110,8 +114,10 @@ export default function PurchaseReport() {
         filters.supplier_id ? String(filters.supplier_id) : 'all'
     );
     const [reportType, setReportType] = useState<'detail' | 'summary'>('detail'); // State for report type
+    const [isFiltering, setIsFiltering] = useState(false); // State for filter animation
     
     const filterReport = () => {
+        setIsFiltering(true);
         router.get(route('reports.purchase'), {
             start_date: startDate || '',
             end_date: endDate || '',
@@ -119,6 +125,7 @@ export default function PurchaseReport() {
         }, {
             preserveState: true,
             replace: true,
+            onFinish: () => setIsFiltering(false),
         });
     };
     
@@ -233,9 +240,9 @@ export default function PurchaseReport() {
                                 </Select>
                             </div>
                             
-                            <Button onClick={filterReport} className="self-end">
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Terapkan Filter
+                            <Button onClick={filterReport} className="self-end" disabled={isFiltering}>
+                                <RefreshCw className={cn("mr-2 h-4 w-4", { "animate-spin": isFiltering })} />
+                                {isFiltering ? 'Memfilter...' : 'Terapkan Filter'}
                             </Button>
 
                             <div className="flex gap-2 ml-auto self-end">
@@ -252,48 +259,79 @@ export default function PurchaseReport() {
                     </CardContent>
                 </Card>
                 
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Total Pembelian</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">Rp {summary.total_purchases.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Jumlah Transaksi</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{summary.total_transactions}</div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Rata-rata Transaksi</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">Rp {summary.avg_transaction.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Supplier Terbanyak</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {summary.top_supplier ? summary.top_supplier.name : "-"}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                {summary.top_supplier ? `Rp ${summary.top_supplier.total_amount.toLocaleString('id-ID')}` : "Tidak ada data"}
-                            </p>
-                        </CardContent>
-                    </Card>
+                {/* Summary Cards for Filtered Period */}
+                <div className="mb-6">
+                    <h2 className="text-xl font-semibold mb-3">Ringkasan Periode Filter</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Total Pembelian (Filter)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.total_purchases.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Jml Transaksi (Filter)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{summary.total_transactions}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Rata-rata Transaksi (Filter)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.avg_transaction.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Supplier Terbanyak (Filter)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-lg font-bold">
+                                    {summary.top_supplier ? summary.top_supplier.name : "-"}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {summary.top_supplier ? `Rp ${summary.top_supplier.total_amount.toLocaleString('id-ID')}` : "Tidak ada data"}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+
+                {/* General Summary Cards */}
+                <div className="mb-6">
+                    <h2 className="text-xl font-semibold mb-3">Ringkasan Umum Pembelian</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Pembelian Hari Ini</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.today_purchases.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Pembelian Bulan Ini</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.current_month_purchases.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Pembelian Tahun Ini</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.current_year_purchases.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
                 
                 {/* Charts */}

@@ -35,7 +35,8 @@ interface ExistingProductData {
 interface ProdukCreateProps {
     categories: Category[];
     availablePurchaseDetails: PurchaseDetail[];
-    existingProductsData: Record<string, ExistingProductData>; // Changed from existingProductNames
+    existingProductsData: Record<string, ExistingProductData>;
+    defaultProfitMargin: number; // Added defaultProfitMargin
     [key: string]: any;
 }
 
@@ -46,7 +47,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ProdukCreate() {
-    const { categories, availablePurchaseDetails, existingProductsData } = usePage<ProdukCreateProps>().props;
+    const { categories, availablePurchaseDetails, existingProductsData, defaultProfitMargin } = usePage<ProdukCreateProps>().props;
     const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
     const [existingImageDisplay, setExistingImageDisplay] = useState<string | null>(null);
     const [selectedPurchaseDetail, setSelectedPurchaseDetail] = useState<PurchaseDetail | null>(null);
@@ -54,51 +55,58 @@ export default function ProdukCreate() {
     const [useCustomName, setUseCustomName] = useState<boolean>(false);
 
     const { data, setData, post, errors, processing, progress } = useForm({
-        nama: '', // Will be set from purchase detail or custom_nama
+        nama: '', 
         custom_nama: '',
         purchase_detail_id: '',
-        category_id: '', // Will be string for Select, or null when sending
-        harga: '', // Calculated, read-only
+        category_id: '', 
+        harga: '', 
         quantity: 0,
-        margin: '', // User input, defaults or from existing product
+        margin: defaultProfitMargin?.toString() || '20', // Use defaultProfitMargin from props
         image: null as File | null,
-        expired_at: '', // Informational, from purchase detail
+        expired_at: '', 
     });
 
     useEffect(() => {
         if (selectedPurchaseDetail) {
             setMaxQuantity(selectedPurchaseDetail.available_quantity);
             const existingProdData = existingProductsData[selectedPurchaseDetail.nama_produk];
-            let currentMargin = data.margin; // Preserve user-typed margin if any
-
-            if (existingProdData) { // Product with this name exists (restocking)
-                setData(currentData => ({
-                    ...currentData,
-                    nama: selectedPurchaseDetail.nama_produk, // Default to purchase name
-                    expired_at: selectedPurchaseDetail.expired || '',
-                    category_id: existingProdData.category_id ? String(existingProdData.category_id) : '',
-                    // Only set margin if not already touched by user, or if it's the initial load for this selection
-                    margin: currentData.margin === '' && existingProdData.margin !== null ? String(existingProdData.margin) : currentData.margin || '20', 
-                }));
-                setExistingImageDisplay(existingProdData.image ? `/storage/${existingProdData.image}` : null);
-                setUseCustomName(false); // Default to not using custom name for existing products
-            } else { // New product
-                setExistingImageDisplay(null);
-                setData(currentData => ({
-                    ...currentData,
-                    nama: selectedPurchaseDetail.nama_produk,
-                    expired_at: selectedPurchaseDetail.expired || '',
-                    category_id: '', // Reset for new product
-                    margin: currentData.margin || '20', // Default margin if not set
-                }));
+            
+            // Determine initial margin: 1. User's current input, 2. Existing product's margin, 3. Default setting, 4. Fallback '20'
+            let initialMargin = data.margin; // Keep if user already typed something
+            if (initialMargin === '' || initialMargin === (defaultProfitMargin?.toString() || '20')) { // If it's still default or empty
+                if (existingProdData && existingProdData.margin !== null) {
+                    initialMargin = String(existingProdData.margin);
+                } else {
+                    initialMargin = defaultProfitMargin?.toString() || '20';
+                }
             }
-            // Trigger price calculation based on (potentially pre-filled) margin
-            const costPrice = selectedPurchaseDetail.harga_satuan;
-            const marginToUse = parseFloat(data.margin || (existingProdData?.margin?.toString() ?? '20'));
-            const sellingPrice = costPrice * (1 + (marginToUse / 100));
-            setData('harga', Math.round(sellingPrice).toString());
 
-        } else { // No purchase detail selected
+            setData(currentData => ({
+                ...currentData,
+                nama: selectedPurchaseDetail.nama_produk,
+                expired_at: selectedPurchaseDetail.expired || '',
+                category_id: existingProdData?.category_id ? String(existingProdData.category_id) : '',
+                margin: initialMargin,
+            }));
+
+            if (existingProdData) {
+                setExistingImageDisplay(existingProdData.image ? `/storage/${existingProdData.image}` : null);
+                setUseCustomName(false); 
+            } else { 
+                setExistingImageDisplay(null);
+            }
+            
+            // Trigger price calculation
+            const costPrice = selectedPurchaseDetail.harga_satuan;
+            const marginToUse = parseFloat(initialMargin);
+            if (!isNaN(marginToUse)) {
+                const sellingPrice = costPrice * (1 + (marginToUse / 100));
+                setData('harga', Math.round(sellingPrice).toString());
+            } else {
+                setData('harga', ''); // Clear price if margin is invalid
+            }
+
+        } else { 
             setMaxQuantity(0);
             setExistingImageDisplay(null);
             setData(currentData => ({ // Reset form fields
@@ -126,15 +134,18 @@ export default function ProdukCreate() {
                 setData('harga', Math.round(sellingPrice).toString());
             }
         } else if (selectedPurchaseDetail?.harga_satuan && data.margin === '') {
-            // If margin is cleared, use default (e.g., 20% or existing product's margin if available)
+            // If margin is cleared, use default from settings or existing product's margin
             const costPrice = selectedPurchaseDetail.harga_satuan;
             const existingProdMargin = existingProductsData[selectedPurchaseDetail.nama_produk]?.margin;
-            const defaultMargin = existingProdMargin !== null && existingProdMargin !== undefined ? existingProdMargin : 20;
-            const sellingPrice = costPrice * (1 + (defaultMargin / 100));
+            const marginToSet = (existingProdMargin !== null && existingProdMargin !== undefined) 
+                ? String(existingProdMargin) 
+                : (defaultProfitMargin?.toString() || '20');
+            
+            const sellingPrice = costPrice * (1 + (parseFloat(marginToSet) / 100));
             setData('harga', Math.round(sellingPrice).toString());
-            setData('margin', String(defaultMargin)); // also update margin field to show the default being used
+            setData('margin', marginToSet);
         }
-    }, [data.margin, selectedPurchaseDetail, existingProductsData, setData]);
+    }, [data.margin, selectedPurchaseDetail, existingProductsData, setData, defaultProfitMargin]);
 
 
     useEffect(() => {

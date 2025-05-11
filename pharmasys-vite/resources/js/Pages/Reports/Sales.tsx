@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination } from '@/components/pagination';
-import { useEffect, useState } from 'react';
+import { useState } from 'react'; // useEffect not needed for this change
 import { router } from '@inertiajs/react';
 import { Line, Bar, Pie } from 'react-chartjs-2';
+import { cn } from '@/lib/utils'; // Import cn for conditional classes
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -89,6 +90,9 @@ interface SalesReportProps {
       nama: string;
       total_quantity: number;
     } | null;
+    today_sales: number;
+    current_month_sales: number;
+    current_year_sales: number;
   };
 }
 
@@ -111,15 +115,18 @@ export default function SalesReport() {
     
     const [startDate, setStartDate] = useState<string>(filters.start_date || '');
     const [endDate, setEndDate] = useState<string>(filters.end_date || '');
+    const [isFiltering, setIsFiltering] = useState(false); // State for filter animation
     
     // Fungsi untuk memfilter laporan berdasarkan tanggal
     const filterReport = () => {
+        setIsFiltering(true);
         router.get(route('reports.sales'), {
             start_date: startDate || '',
             end_date: endDate || '',
         }, {
             preserveState: true,
             replace: true,
+            onFinish: () => setIsFiltering(false),
         });
     };
     
@@ -211,9 +218,9 @@ export default function SalesReport() {
                                 />
                             </div>
                             
-                            <Button type="button" onClick={filterReport}>
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                                Terapkan Filter
+                            <Button type="button" onClick={filterReport} disabled={isFiltering}>
+                                <RefreshCw className={cn("mr-2 h-4 w-4", { "animate-spin": isFiltering })} />
+                                {isFiltering ? 'Memfilter...' : 'Terapkan Filter'}
                             </Button>
 
                             <div className="flex gap-2 ml-auto">
@@ -231,47 +238,77 @@ export default function SalesReport() {
                 </Card>
                 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Total Penjualan</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">Rp {summary.total_sales.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Jumlah Transaksi</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{summary.total_transactions}</div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Rata-rata Transaksi</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">Rp {summary.avg_transaction.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Produk Terlaris</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {summary.top_product ? summary.top_product.nama : "-"}
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                {summary.top_product ? `${summary.top_product.total_quantity} unit terjual` : "Tidak ada data"}
-                            </p>
-                        </CardContent>
-                    </Card>
+                <div className="mb-6">
+                    <h2 className="text-xl font-semibold mb-3">Ringkasan Periode Filter</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Total Penjualan (Filter)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.total_sales.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Jml Transaksi (Filter)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{summary.total_transactions}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Rata-rata Transaksi (Filter)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.avg_transaction.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Produk Terlaris (Filter)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-lg font-bold">
+                                    {summary.top_product ? summary.top_product.nama : "-"}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {summary.top_product ? `${summary.top_product.total_quantity} unit terjual` : "Tidak ada data"}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+
+                <div className="mb-6">
+                    <h2 className="text-xl font-semibold mb-3">Ringkasan Umum</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Penjualan Hari Ini</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.today_sales.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Penjualan Bulan Ini</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.current_month_sales.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">Penjualan Tahun Ini</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">Rp {summary.current_year_sales.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
                 
                 {/* Charts */}

@@ -84,14 +84,18 @@ class PurchaseController extends Controller
             'details' => 'required|array|min:1',
             'details.*.nama_produk' => 'required|string',
             'details.*.expired' => 'required|date',
-            'details.*.jumlah' => 'required|integer',
+            'details.*.jumlah' => 'required|integer|min:0',
             'details.*.kemasan' => 'required|string',
-            'details.*.harga_satuan' => 'required|numeric',
-            'details.*.total' => 'required|numeric', // This 'total' is per detail item
+            'details.*.harga_satuan' => 'required|numeric|min:0',
+            'details.*.gross' => 'required|numeric|min:0', // Frontend sends 'gross'
+            'details.*.discount_percentage' => 'nullable|numeric|min:0|max:100',
+            'details.*.total' => 'required|numeric|min:0', // This 'total' is item's sub_total
         ]);
 
-        // Calculate subtotal from details
-        $subtotal = collect($validated['details'])->sum('total');
+        // Calculate subtotal from details (sum of item's sub_totals)
+        $subtotal = collect($validated['details'])->sum(function ($detail) {
+            return $detail['total']; // 'total' from frontend is item's sub_total
+        });
         $ppnPercentage = $validated['ppn_percentage'] ?? 0;
         $ppnAmount = ($subtotal * $ppnPercentage) / 100;
         $grandTotal = $subtotal + $ppnAmount;
@@ -125,15 +129,18 @@ class PurchaseController extends Controller
         try {
             $purchase = Purchase::create($purchaseData);
 
-            foreach ($validated['details'] as $detail) {
-                // Ensure produk_id is null if not provided, or handle linking existing products if necessary
-                $detailData = $detail;
-                if (!isset($detailData['produk_id'])) {
-                    // If you have a system to link to existing Produk by name, you could do it here.
-                    // For now, assuming produk_id is not part of this specific form's direct input for new purchases.
-                    // It's fillable in PurchaseDetail, so it might be set in other contexts or if 'nama_produk' implies an existing one.
-                }
-                $purchase->details()->create($detailData);
+            foreach ($validated['details'] as $detailItem) {
+                $purchase->details()->create([
+                    'nama_produk' => $detailItem['nama_produk'],
+                    'expired' => $detailItem['expired'],
+                    'jumlah' => $detailItem['jumlah'],
+                    'kemasan' => $detailItem['kemasan'],
+                    'harga_satuan' => $detailItem['harga_satuan'],
+                    'gross_amount' => $detailItem['gross'], // Map 'gross' from frontend to 'gross_amount'
+                    'discount_percentage' => $detailItem['discount_percentage'] ?? 0,
+                    'total' => $detailItem['total'], // This is item's sub_total
+                    // 'produk_id' can be handled here if linking to existing Produk model
+                ]);
             }
 
             DB::commit();
@@ -199,25 +206,70 @@ class PurchaseController extends Controller
             'details' => 'required|array|min:1',
             'details.*.nama_produk' => 'required|string',
             'details.*.expired' => 'required|date',
-            'details.*.jumlah' => 'required|integer',
+            'details.*.jumlah' => 'required|integer|min:0',
             'details.*.kemasan' => 'required|string',
-            'details.*.harga_satuan' => 'required|numeric',
-            'details.*.total' => 'required|numeric',
+            'details.*.harga_satuan' => 'required|numeric|min:0',
+            'details.*.gross' => 'required|numeric|min:0',
+            'details.*.discount_percentage' => 'nullable|numeric|min:0|max:100',
+            'details.*.total' => 'required|numeric|min:0', // This 'total' is item's sub_total
+            'ppn_percentage' => 'nullable|numeric|min:0|max:100',
         ]);
         
-        // Hitung total dari details
-        $total = collect($validated['details'])->sum('total');
-        $validated['total'] = $total;
+        // Recalculate subtotal, PPN, and grand total for update
+        $subtotal = collect($validated['details'])->sum(function ($detail) {
+            return $detail['total']; // 'total' from frontend is item's sub_total
+        });
+        $ppnPercentage = $validated['ppn_percentage'] ?? $purchase->ppn_percentage ?? 0; // Use new, old, or 0
+        $ppnAmount = ($subtotal * $ppnPercentage) / 100;
+        $grandTotal = $subtotal + $ppnAmount;
 
-        $purchase->update($validated);
-
-        // Hapus detail lama, insert ulang
-        $purchase->details()->delete();
-        foreach ($validated['details'] as $detail) {
-            $purchase->details()->create($detail);
+        $updateData = $request->only(['no_faktur', 'pbf', 'tanggal_faktur', 'jatuh_tempo', 'jumlah', 'tanggal_pembayaran', 'keterangan']);
+        
+        // Find supplier_id based on pbf if pbf is part of $request and might change
+        if ($request->has('pbf')) {
+            $supplier = Supplier::where('company', $validated['pbf'])->first();
+            if (!$supplier) {
+                return redirect()->back()->withInput()->withErrors(['pbf' => 'Supplier tidak ditemukan.']);
+            }
+            $updateData['supplier_id'] = $supplier->id;
         }
 
-        return redirect()->route('purchases.index')->with('success', 'Pembelian berhasil diperbarui.');
+
+        $updateData['subtotal'] = $subtotal;
+        $updateData['ppn_percentage'] = $ppnPercentage;
+        $updateData['ppn_amount'] = $ppnAmount;
+        $updateData['total'] = $grandTotal; // This is the correct grand total
+
+        DB::beginTransaction();
+        try {
+            $purchase->update($updateData);
+
+            // Hapus detail lama, insert ulang
+            $purchase->details()->delete();
+            foreach ($validated['details'] as $detailItem) {
+                $purchase->details()->create([
+                    'nama_produk' => $detailItem['nama_produk'],
+                    'expired' => $detailItem['expired'],
+                    'jumlah' => $detailItem['jumlah'],
+                    'kemasan' => $detailItem['kemasan'],
+                    'harga_satuan' => $detailItem['harga_satuan'],
+                    'gross_amount' => $detailItem['gross'],
+                    'discount_percentage' => $detailItem['discount_percentage'] ?? 0,
+                    'total' => $detailItem['total'],
+                     // 'id' from $detailItem is not used here as we delete and recreate.
+                     // If you were to update existing details, you'd use $detailItem['id'].
+                ]);
+            }
+            DB::commit();
+            return redirect()->route('purchases.index')->with('success', 'Pembelian berhasil diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error updating purchase: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            return redirect()->back()->withInput()->withErrors(['general' => 'Gagal memperbarui pembelian. Error: ' . $e->getMessage()]);
+        }
     }
 
     public function destroy(Purchase $purchase)

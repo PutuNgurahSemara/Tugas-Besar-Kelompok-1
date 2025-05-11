@@ -36,8 +36,11 @@ interface Produk {
 
 interface ProdukWithRelations extends Produk {
     category: Category | null;
-    total_stock: number; // Added from controller
-    earliest_expiry: string | null; // Added from controller
+    total_stock: number; 
+    available_stock: number; // Assuming this is also available or can be derived from total_stock if sales not tracked here
+    earliest_expiry: string | null;
+    is_out_of_stock: boolean; // From accessor
+    is_low_stock: boolean; // From accessor
 }
 
 interface ProdukIndexProps extends Record<string, unknown> {
@@ -229,7 +232,15 @@ export default function ProdukIndex() {
                                     <CardDescription>{product.category?.name || 'No category'}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="flex-grow space-y-2">
-                                    <p><span className="font-semibold">Stock:</span> {product.total_stock ?? '0'}</p>
+                                    <div className="flex items-center">
+                                        <p className="mr-2"><span className="font-semibold">Stock:</span> {product.available_stock ?? '0'}</p>
+                                        {product.is_out_of_stock && (
+                                            <Badge variant="destructive" className="text-xs">Out of Stock</Badge>
+                                        )}
+                                        {!product.is_out_of_stock && product.is_low_stock && (
+                                            <Badge variant="secondary" className="bg-yellow-500 text-black text-xs">Low Stock</Badge>
+                                        )}
+                                    </div>
                                     <p><span className="font-semibold">Price:</span> Rp {product.harga.toLocaleString('id-ID')}</p>
                                     <div>
                                         <span className="font-semibold">Expiry: </span>
