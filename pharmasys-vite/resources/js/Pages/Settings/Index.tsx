@@ -2,6 +2,7 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, usePage, useForm, Link } from '@inertiajs/react';
+import { type FormDataConvertible } from '@inertiajs/core'; // FormDataType removed from here
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -12,23 +13,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useState } from 'react';
 import { Settings as SettingsIcon, Upload, Image, Info, Globe, DollarSign } from 'lucide-react';
 
-// Interface untuk data setting yang diterima dari controller
-interface SettingsData {
+// Interface for the specific shape of the settings form data
+interface SettingsFormShape {
     app_name: string;
     app_currency: string;
-    app_logo: File | null; // Made non-optional in type, as initialData provides null
-    app_favicon: File | null; // Made non-optional in type, as initialData provides null
-    language: string; // Made non-optional, initialData provides default
-    current_logo: string | null; // Made non-optional, initialData provides null or string
-    current_favicon: string | null; // Made non-optional, initialData provides null or string
-    remove_logo: boolean; // Made non-optional, initialData provides boolean
-    remove_favicon: boolean; // Made non-optional, initialData provides boolean
+    app_logo: File | null;
+    app_favicon: File | null;
+    language: string;
+    current_logo: string | null;
+    current_favicon: string | null;
+    remove_logo: boolean;
+    remove_favicon: boolean;
     low_stock_threshold: number;
     default_profit_margin: number;
-    [key: string]: any; // Keep index signature for FormDataType constraint
+    // No index signature here
 }
 
 // Define props for the page, including what Inertia provides
+// Define FormDataType locally as it's not directly exported by @inertiajs/core
+type FormDataType = Record<string, FormDataConvertible>;
+
 interface SettingsPageProps {
     settings: { // This is the structure coming from the controller
         app_name: string;
@@ -60,7 +64,7 @@ export default function SettingsIndex() {
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
     
-    const initialSettingsData: SettingsData = { // Explicitly type initial data with SettingsData
+    const initialSettingsData: SettingsFormShape = { // Typed with the clean shape
         app_name: settings.app_name ?? 'PharmaSys',
         app_currency: settings.app_currency ?? 'Rp',
         app_logo: null, // Initialize optional file fields with null instead of undefined
@@ -74,8 +78,8 @@ export default function SettingsIndex() {
         default_profit_margin: settings.default_profit_margin ?? 20,
     };
     
-    // useForm should now be happy with SettingsData having an index signature
-    const { data, setData, post, errors: formErrors, processing, reset } = useForm<SettingsData>(initialSettingsData); 
+    // Use an intersection type for useForm's generic argument and cast initialData
+    const { data, setData, post, errors: formErrors, processing, reset } = useForm<SettingsFormShape & FormDataType>(initialSettingsData as (SettingsFormShape & FormDataType));
 
     useEffect(() => {
         // Set preview untuk logo dan favicon yang sudah ada

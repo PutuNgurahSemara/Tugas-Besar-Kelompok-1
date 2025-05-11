@@ -45,10 +45,13 @@ class ProdukController extends Controller
         
         $produk = $produkQuery->paginate((int)$perPage)->withQueryString();
         
+        // Fetch low stock threshold setting
+        $lowStockThreshold = (int) Setting::getValue('low_stock_threshold', 10);
+
         // Transform products to include stock information from purchase details
         $produk->getCollection()->transform(function ($item) {
             // Reload purchaseDetails if they are not fully loaded due to groupBy
-            $item->load('purchaseDetails'); 
+            $item->load('purchaseDetails');
             $totalStock = $item->purchaseDetails->sum('jumlah');
             
             $earliestExpiry = $item->purchaseDetails()
@@ -71,6 +74,7 @@ class ProdukController extends Controller
                 'sort_price' => $sortPrice,
             ],
             'pageTitle' => 'All Products',
+            'lowStockThreshold' => $lowStockThreshold, // Pass the threshold to the view
             'links' => [
                 'outstock' => route('produk.outstock'),
                 'expired' => route('produk.expired'),
@@ -538,12 +542,15 @@ class ProdukController extends Controller
         $search = $filters['search'] ?? null;
         $perPage = $filters['perPage'] ?? 10;
 
+        // Fetch low stock threshold setting
+        $lowStockThreshold = (int) Setting::getValue('low_stock_threshold', 10);
+
         // Get products with low stock (total quantity from purchase_details)
         $produk = Produk::with(['category', 'purchaseDetails'])
             ->select('produk.*')
             ->leftJoin('purchase_details', 'produk.id', '=', 'purchase_details.produk_id')
             ->groupBy('produk.id')
-            ->havingRaw('COALESCE(SUM(purchase_details.jumlah), 0) <= ?', [10])  // Consider stock as low if <= 10
+            ->havingRaw('COALESCE(SUM(purchase_details.jumlah), 0) <= ?', [$lowStockThreshold])  // Use dynamic threshold
             ->when($search, function ($query, $search) {
                 return $query->where('produk.nama', 'like', '%'.$search.'%');
             })
@@ -564,6 +571,7 @@ class ProdukController extends Controller
                 'perPage' => (int)$perPage,
             ],
             'pageTitle' => 'Low Stock Products',
+            'lowStockThreshold' => $lowStockThreshold, // Pass the threshold to the view
             'links' => [
                 'all' => route('produk.index'),
                 'expired' => route('produk.expired'),

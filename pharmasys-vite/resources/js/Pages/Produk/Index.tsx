@@ -40,14 +40,19 @@ interface ProdukWithRelations extends Produk {
     available_stock: number; // Assuming this is also available or can be derived from total_stock if sales not tracked here
     earliest_expiry: string | null;
     is_out_of_stock: boolean; // From accessor
-    is_low_stock: boolean; // From accessor
+    is_low_stock: boolean; // From accessor (will be overridden by frontend logic using prop)
 }
 
-interface ProdukIndexProps extends Record<string, unknown> {
+interface ProdukIndexProps {
     produk: PaginatedResponse<ProdukWithRelations>;
     filters: {
         search: string | null;
         perPage: number;
+        sort_price?: string; 
+    };
+    flash?: {
+        success?: string;
+        error?: string;
     };
     pageTitle?: string;
     links?: {
@@ -55,6 +60,8 @@ interface ProdukIndexProps extends Record<string, unknown> {
         outstock?: string;
         expired?: string;
     };
+    lowStockThreshold: number; // Added new prop
+    [key: string]: unknown; // Added to satisfy PageProps constraint
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -63,7 +70,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ProdukIndex() {
-    const { produk: produkData, flash, filters, pageTitle, links } = usePage<Record<string, any>>().props;
+    const { 
+        produk: produkData, 
+        flash, 
+        filters, 
+        pageTitle, 
+        links, 
+        lowStockThreshold 
+    } = usePage<ProdukIndexProps>().props;
     
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
     const [deleteDialog, setDeleteDialog] = useState({
@@ -233,11 +247,12 @@ export default function ProdukIndex() {
                                 </CardHeader>
                                 <CardContent className="flex-grow space-y-2">
                                     <div className="flex items-center">
-                                        <p className="mr-2"><span className="font-semibold">Stock:</span> {product.available_stock ?? '0'}</p>
-                                        {product.is_out_of_stock && (
+                                        <p className="mr-2"><span className="font-semibold">Stock:</span> {product.total_stock ?? '0'}</p> 
+                                        {/* Changed to total_stock for consistency with low stock logic */}
+                                        {(product.total_stock === 0) && (
                                             <Badge variant="destructive" className="text-xs">Out of Stock</Badge>
                                         )}
-                                        {!product.is_out_of_stock && product.is_low_stock && (
+                                        {(product.total_stock > 0 && product.total_stock <= lowStockThreshold) && (
                                             <Badge variant="secondary" className="bg-yellow-500 text-black text-xs">Low Stock</Badge>
                                         )}
                                     </div>
