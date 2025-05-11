@@ -3,7 +3,7 @@ import { type BreadcrumbItem, type PaginatedResponse } from '@/types';
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { ActionButton } from '@/components/action-button';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
-import { Plus, Edit, Trash2, Eye, FileSpreadsheet } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, FileSpreadsheet, PackagePlus } from 'lucide-react'; // Added PackagePlus
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Keep for now, might remove if table completely gone
@@ -274,6 +274,13 @@ export default function ProdukIndex() {
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => router.visit(route('produk.show', product.id))}
+                                        />
+                                        <ActionButton
+                                            icon={PackagePlus} // Icon for Restock
+                                            tooltip="Restock product"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => router.visit(route('produk.create', { source_product_id: product.id }))}
                                         />
                                         <ActionButton
                                             icon={Edit}

@@ -146,7 +146,12 @@ export default function SalesIndex() {
                                                     tooltip="View Details"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => router.visit(route('sales.show', sale.id))}
+                                                    onClick={() => {
+                                                        const url = route('sales.show', sale.id);
+                                                        console.log(`Generated URL for sale ID ${sale.id}: ${url}`); // For browser console
+                                                        // Try with router.get explicitly
+                                                        router.get(url); 
+                                                    }}
                                                 />
                                                 <ActionButton
                                                     icon={Trash2}

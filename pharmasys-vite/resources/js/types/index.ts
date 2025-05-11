@@ -113,8 +113,8 @@ export interface SaleItem {
   produk_id: number;
   produk?: Produk | null; // Optional: if product details are eager-loaded
   quantity: number;
-  price_at_sale: number; // Price of the product at the time of sale
-  total_amount: number;
+  price: number; // Renamed from price_at_sale to match usage, assumed DB column
+  total_amount: number; // This is likely quantity * price, ensure it's provided or calculated
   // Add other SaleItem properties as needed
 }
 
@@ -123,8 +123,9 @@ export interface Sale {
   user_id: number; // ID of the user (cashier) who made the sale
   user?: User | null; // Optional: if user details are eager-loaded
   total_price: number;
-  total_items: number;
+  total_items: number; // Note: This field is not in the sales table schema from migration
   payment_method?: string; // e.g., 'cash', 'card'
+  amount_paid?: number | null; // Added from DB schema
   status?: string; // e.g., 'completed', 'pending', 'cancelled'
   notes?: string;
   created_at: string; // Or Date

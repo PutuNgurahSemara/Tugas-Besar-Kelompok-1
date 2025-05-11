@@ -18,7 +18,7 @@ interface Produk {
     id: number;
     nama: string;
     harga: number;
-    quantity: number;
+    quantity: number; // This is the available stock from backend
     image?: string;
 }
 
@@ -28,12 +28,15 @@ function InputError({ message, className = "" }: { message?: string; className?:
     return <div className={`text-red-500 text-xs mt-1 ${className}`}>{message}</div>;
 }
 
-interface SalesCreateProps {
+// Props for SalesCreate page (assuming 'products' comes from controller)
+interface SalesCreatePageProps {
     products: Produk[];
+    // Add other props if any, e.g., errors, flash messages if not handled by usePage directly
+    [key: string]: any; // To satisfy PageProps constraint if needed
 }
 
 interface CartItem extends Produk {
-    cart_quantity: number;
+    cart_quantity: number; // Quantity of this item in the cart
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -46,18 +49,22 @@ export default function SalesCreate() {
     const { t } = useTranslation();
     const { showToast } = useToast();
     
-    // Akses props dengan aman
-    const { products } = (usePage().props as any).products ? (usePage().props as any) : { products: [] };
+    // Use SalesCreatePageProps for type safety with usePage
+    const { products = [] } = usePage<SalesCreatePageProps>().props; 
+
     const [searchTerm, setSearchTerm] = useState('');
     const [cart, setCart] = useState<CartItem[]>([]);
-    const [showSuccessModal, setShowSuccessModal] = useState(false);
-    const [showErrorModal, setShowErrorModal] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
+    // Unused state variables, can be removed if not planned for future use
+    // const [showSuccessModal, setShowSuccessModal] = useState(false);
+    // const [showErrorModal, setShowErrorModal] = useState(false);
+    // const [errorMessage, setErrorMessage] = useState('');
     const [animateCartPulse, setAnimateCartPulse] = useState(false);
+
 
     const { data, setData, post, errors, processing, reset } = useForm({
         payment_method: 'Cash',
         amount_paid: '',
+        items: null, // Add items here so errors.items is a known key
     });
 
     // Filter produk berdasarkan search term
@@ -70,42 +77,46 @@ export default function SalesCreate() {
 
     // Tambah produk ke keranjang
     const addToCart = (product: Produk) => {
-        let itemAddedOrUpdated = false;
         setCart(currentCart => {
             const existingItem = currentCart.find((item: CartItem) => item.id === product.id);
             if (existingItem) {
-                if (existingItem.cart_quantity < (product.quantity ?? Infinity)) {
-                    itemAddedOrUpdated = true;
+                // Check against original product quantity (max available stock)
+                if (existingItem.cart_quantity < product.quantity) { 
                     return currentCart.map((item: CartItem) =>
                         item.id === product.id
                             ? { ...item, cart_quantity: item.cart_quantity + 1 }
                             : item
                     );
+                } else {
+                    // Reverting to multi-argument string-based showToast based on TS errors
+                    showToast(t('error'), t('stock.not.enough.cart', { product: product.nama }), 'error'); 
+                    return currentCart; // Not enough stock to add more
                 }
-                return currentCart;
             } else {
-                if ((product.quantity ?? 0) > 0) {
-                    itemAddedOrUpdated = true;
+                if (product.quantity > 0) { // Check if product has any stock
                     return [...currentCart, { ...product, cart_quantity: 1 }];
+                } else {
+                    // Reverting to multi-argument string-based showToast
+                    showToast(t('error'), t('out.of.stock.cart', { product: product.nama }), 'error'); 
+                    return currentCart; // Product is out of stock
                 }
-                return currentCart;
             }
         });
-
-        if (itemAddedOrUpdated) {
-            setAnimateCartPulse(true);
-            setTimeout(() => {
-                setAnimateCartPulse(false);
-            }, 700); // Duration of the pulse effect
-        }
+        // Simple pulse animation for cart
+        setAnimateCartPulse(true);
+        setTimeout(() => setAnimateCartPulse(false), 700);
     };
 
     // Update kuantitas di keranjang
-    const updateCartQuantity = (productId: number, newQuantity: number) => {
+    const updateCartQuantity = (productId: number, newQuantityInput: number) => {
         setCart(currentCart => {
-            const productInStock = products.find((p: Produk) => p.id === productId);
-            const maxQuantity = productInStock?.quantity ?? 0;
-            const validatedQuantity = Math.max(1, Math.min(newQuantity, maxQuantity));
+            const itemToUpdate = currentCart.find((item: CartItem) => item.id === productId);
+            if (!itemToUpdate) return currentCart;
+
+            // product.quantity here refers to the original stock passed when item was added
+            const maxQuantity = itemToUpdate.quantity; 
+            const validatedQuantity = Math.max(1, Math.min(newQuantityInput, maxQuantity));
+            
             return currentCart.map((item: CartItem) =>
                 item.id === productId
                     ? { ...item, cart_quantity: validatedQuantity }
@@ -130,46 +141,51 @@ export default function SalesCreate() {
         if (!isNaN(paid) && paid >= totalPrice) {
             return paid - totalPrice;
         }
-        return null; // Atau 0 jika lebih disukai untuk tidak menampilkan apa-apa jika tidak valid
+        return null; 
     }, [data.amount_paid, totalPrice]);
 
     // Submit form
     function submitSale(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
+        if (cart.length === 0) {
+            showToast(t('error'), t('cart.empty.to.submit'), 'error');
+            return;
+        }
         const dataToSend = {
             payment_method: data.payment_method,
-            amount_paid: data.amount_paid,
+            amount_paid: data.amount_paid || '0', // Ensure amount_paid is not empty string
             items: cart.map((item: CartItem) => ({
                 produk_id: item.id,
                 quantity: item.cart_quantity,
-                price: item.harga
+                price: item.harga 
             })),
+            total_price: totalPrice, // Send calculated total price
         };
-        router.post(route('sales.store'), dataToSend, {
+        
+        post(route('sales.store'), dataToSend, { // dataToSend is the second argument, options is the third
             onSuccess: () => {
                 setCart([]);
-                reset();
-                // Tampilkan toast notifikasi sukses
+                reset('amount_paid', 'payment_method'); // Reset only relevant fields
+                // Reverting to multi-argument string-based showToast
                 showToast(
                     t('payment.success'),
                     t('transaction.saved'),
-                    'success',
+                    'success', // Assuming 'success' is a valid variant string for your toast
                     5000
                 );
             },
-            onError: (errors) => {
-                // Tampilkan toast notifikasi error
-                let errorMsg = t('transaction.error');
-                if (errors.items) {
-                    errorMsg = Array.isArray(errors.items) 
-                        ? errors.items[0]
-                        : errors.items;
+            onError: (formErrors: Record<string, string>) => { // Explicitly type errors
+                let errorMsg = t('transaction.error.generic');
+                if (formErrors.items && typeof formErrors.items === 'string') {
+                    errorMsg = formErrors.items;
+                } else if (Object.values(formErrors).length > 0) {
+                    errorMsg = Object.values(formErrors)[0];
                 }
-                
+                // Reverting to multi-argument string-based showToast
                 showToast(
                     t('payment.failed'),
                     errorMsg,
-                    'error',
+                    'error', // Assuming 'error' is a valid variant string
                     5000
                 );
             }
@@ -226,7 +242,7 @@ export default function SalesCreate() {
                 </Card>
 
                 {/* Kolom Keranjang & Pembayaran (Kanan) */}
-                <Card className={`transition-colors duration-300 ease-in-out ${animateCartPulse ? 'border-green-500 border-2' : ''}`}>
+                <Card className={`lg:col-span-1 transition-colors duration-300 ease-in-out ${animateCartPulse ? 'border-green-500 border-2' : ''}`}>
                     <CardHeader>
                         <CardTitle>{t('cart')}</CardTitle>
                     </CardHeader>
@@ -253,7 +269,7 @@ export default function SalesCreate() {
                                                         <Input
                                                             type="number"
                                                             min="1"
-                                                            max={item.quantity}
+                                                            max={item.quantity} // Max is original stock of product
                                                             value={item.cart_quantity}
                                                             onChange={(e) => updateCartQuantity(item.id, parseInt(e.target.value) || 1)}
                                                             className="h-8 w-16 text-center mx-auto"
@@ -292,7 +308,7 @@ export default function SalesCreate() {
                                             <SelectItem value="transfer">Transfer</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <InputError message={typeof (errors as any).payment_method === 'string' ? (errors as any).payment_method : undefined} className="mt-2" />
+                                    <InputError message={errors.payment_method as string | undefined} className="mt-2" />
                                 </div>
                                 <div>
                                     <Label htmlFor="amount_paid">{t('amount.paid')}</Label>
@@ -302,9 +318,9 @@ export default function SalesCreate() {
                                         placeholder={t('enter.amount')}
                                         value={data.amount_paid}
                                         onChange={(e) => setData('amount_paid', e.target.value)}
-                                        min={totalPrice}
+                                        min={totalPrice} // Ensure amount paid is at least total price
                                     />
-                                    <InputError message={typeof (errors as any).amount_paid === 'string' ? (errors as any).amount_paid : undefined} className="mt-2" />
+                                    <InputError message={errors.amount_paid as string | undefined} className="mt-2" />
                                 </div>
                                 {changeAmount !== null && changeAmount >= 0 && (
                                     <div className="flex justify-between font-semibold text-md text-blue-600">
@@ -315,11 +331,14 @@ export default function SalesCreate() {
                                 <Button
                                     type="submit"
                                     className="w-full bg-green-600 hover:bg-green-700 text-white"
-                                    disabled={processing || cart.length === 0}
+                                    disabled={processing || cart.length === 0 || parseFloat(data.amount_paid) < totalPrice}
                                 >
                                     {processing ? t('processing') : t('complete.sale')}
                                 </Button>
-                                <InputError message={typeof (errors as any).items === 'string' ? (errors as any).items : Array.isArray((errors as any).items) ? (errors as any).items[0] : undefined} className="mt-2 text-center" />
+                                {/* Display general 'items' error if it exists and is a string from form errors */}
+                                {errors.items && typeof errors.items === 'string' ? (
+                                    <InputError message={errors.items} className="mt-2 text-center" />
+                                ) : null}
                             </div>
                         </form>
                     </CardContent>

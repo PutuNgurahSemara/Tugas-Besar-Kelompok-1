@@ -11,7 +11,11 @@ class Sale extends Model
     use HasFactory,SoftDeletes;
 
     protected $fillable = [
-        'product_id','quantity','total_price'
+        'user_id', 
+        'total_price', 
+        'payment_method', 
+        'amount_paid'
+        // Add any other fields from the 'sales' table schema that should be mass assignable
     ];
 
     public function product(){

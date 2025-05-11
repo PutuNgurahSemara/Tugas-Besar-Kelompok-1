@@ -82,21 +82,19 @@ class ProdukController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request) // Added Request $request
     {
         $categories = Category::orderBy('name')->get(['id', 'name']);
-        $defaultProfitMargin = (float) Setting::getValue('default_profit_margin', 20); // Get default margin
+        $defaultProfitMargin = (float) Setting::getValue('default_profit_margin', 20);
         
-        // Get purchase details with available stock
         $purchaseDetails = PurchaseDetail::with(['purchase'])
-            ->whereNull('produk_id') // Only get details not yet assigned to a product
+            ->whereNull('produk_id')
             ->orWhere(function($query) {
                 $query->whereNotNull('produk_id')
-                      ->where('jumlah', '>', 0); // Or details with remaining stock
+                      ->where('jumlah', '>', 0);
             })
             ->get();
         
-        // Transform purchase details to a format suitable for the frontend
         $availablePurchaseDetails = $purchaseDetails->map(function($detail) {
             return [
                 'id' => $detail->id,
@@ -108,7 +106,7 @@ class ProdukController extends Controller
                 'kemasan' => $detail->kemasan,
                 'harga_satuan' => $detail->harga_satuan,
                 'expired' => $detail->expired ? $detail->expired->format('Y-m-d') : null,
-                'available_quantity' => $detail->jumlah, // For now, all quantity is available
+                'available_quantity' => $detail->jumlah,
             ];
         });
         
@@ -124,11 +122,33 @@ class ProdukController extends Controller
                                     })
                                     ->toArray();
 
+        // Prepare initial data for prefilling form if source_product_id is provided
+        $initialCategoryId = null;
+        $initialProductName = null;
+        $initialProductImage = null;
+        $initialMargin = $defaultProfitMargin; // Default to system's default margin
+
+        $sourceProductId = $request->query('source_product_id');
+        if ($sourceProductId) {
+            $sourceProduct = Produk::find($sourceProductId);
+            if ($sourceProduct) {
+                $initialProductName = $sourceProduct->nama;
+                $initialCategoryId = $sourceProduct->category_id;
+                $initialProductImage = $sourceProduct->image;
+                // Use product's own margin if set, otherwise fall back to default
+                $initialMargin = $sourceProduct->margin ?? $defaultProfitMargin; 
+            }
+        }
+
         return Inertia::render('Produk/Create', [
             'categories' => $categories,
             'availablePurchaseDetails' => $availablePurchaseDetails,
-            'existingProductsData' => $existingProductsData, // Changed from existingProductNames
-            'defaultProfitMargin' => $defaultProfitMargin, // Pass to view
+            'existingProductsData' => $existingProductsData,
+            'defaultProfitMargin' => $defaultProfitMargin,
+            'initialCategoryId' => $initialCategoryId,
+            'initialProductName' => $initialProductName,
+            'initialProductImage' => $initialProductImage,
+            'initialMargin' => $initialMargin,
         ]);
     }
 

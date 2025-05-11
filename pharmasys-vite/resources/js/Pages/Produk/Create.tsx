@@ -36,7 +36,11 @@ interface ProdukCreateProps {
     categories: Category[];
     availablePurchaseDetails: PurchaseDetail[];
     existingProductsData: Record<string, ExistingProductData>;
-    defaultProfitMargin: number; // Added defaultProfitMargin
+    defaultProfitMargin: number;
+    initialCategoryId?: number | null;
+    initialProductName?: string | null;
+    initialProductImage?: string | null;
+    initialMargin?: number | null;
     [key: string]: any;
 }
 
@@ -47,26 +51,57 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ProdukCreate() {
-    const { categories, availablePurchaseDetails, existingProductsData, defaultProfitMargin } = usePage<ProdukCreateProps>().props;
+    const { 
+        categories, 
+        availablePurchaseDetails, 
+        existingProductsData, 
+        defaultProfitMargin,
+        initialCategoryId,
+        initialProductName,
+        initialProductImage,
+        initialMargin 
+    } = usePage<ProdukCreateProps>().props;
     const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
-    const [existingImageDisplay, setExistingImageDisplay] = useState<string | null>(null);
+    const [existingImageDisplay, setExistingImageDisplay] = useState<string | null>(initialProductImage ? `/storage/${initialProductImage}` : null);
     const [selectedPurchaseDetail, setSelectedPurchaseDetail] = useState<PurchaseDetail | null>(null);
     const [maxQuantity, setMaxQuantity] = useState<number>(0);
-    const [useCustomName, setUseCustomName] = useState<boolean>(false);
+    const [useCustomName, setUseCustomName] = useState<boolean>(!initialProductName); // Default to false if restocking (name is prefilled)
 
     const { data, setData, post, errors, processing, progress } = useForm({
-        nama: '', 
+        nama: initialProductName || '', 
         custom_nama: '',
         purchase_detail_id: '',
-        category_id: '', 
+        category_id: initialCategoryId ? String(initialCategoryId) : '', 
         harga: '', 
         quantity: 0,
-        margin: defaultProfitMargin?.toString() || '20', // Use defaultProfitMargin from props
+        margin: (initialMargin !== null && initialMargin !== undefined) 
+                ? String(initialMargin) 
+                : (defaultProfitMargin?.toString() || '20'),
         image: null as File | null,
         expired_at: '', 
     });
 
+    // This useEffect was for initial prop setting, but useForm and useState initializers now handle this.
+    // useEffect(() => {
+    //     // Effect for when coming from "Restock" button (initial props)
+    //     if (initialProductName) {
+    //         setData(currentData => ({
+    //             ...currentData,
+    //             nama: initialProductName,
+    //             category_id: initialCategoryId ? String(initialCategoryId) : '',
+    //             margin: (initialMargin !== null && initialMargin !== undefined) 
+    //                     ? String(initialMargin) 
+    //                     : (defaultProfitMargin?.toString() || '20'),
+    //         }));
+    //         if (initialProductImage) {
+    //             setExistingImageDisplay(`/storage/${initialProductImage}`);
+    //         }
+    //         setUseCustomName(false); // Don't use custom name if prefilled from existing product
+    //     }
+    // }, [initialProductName, initialCategoryId, initialProductImage, initialMargin, defaultProfitMargin, setData]);
+    
     useEffect(() => {
+        // This effect handles changes when a purchase_detail_id is selected from the dropdown
         if (selectedPurchaseDetail) {
             setMaxQuantity(selectedPurchaseDetail.available_quantity);
             const existingProdData = existingProductsData[selectedPurchaseDetail.nama_produk];
@@ -108,21 +143,32 @@ export default function ProdukCreate() {
 
         } else { 
             setMaxQuantity(0);
-            setExistingImageDisplay(null);
-            setData(currentData => ({ // Reset form fields
+            setExistingImageDisplay(initialProductImage ? `/storage/${initialProductImage}` : null);
+            setData(currentData => ({ 
                 ...currentData,
-                nama: '',
-                expired_at: '',
-                harga: '',
-                margin: '',
-                category_id: '',
-                custom_nama: '',
-                purchase_detail_id: '',
+                nama: initialProductName || '', // Revert to initial or empty
+                expired_at: '', // Clear as no purchase detail is selected
+                harga: '', // Will be recalculated or should be empty
+                margin: (initialMargin !== null && initialMargin !== undefined) 
+                        ? String(initialMargin) 
+                        : (defaultProfitMargin?.toString() || '20'),
+                category_id: initialCategoryId ? String(initialCategoryId) : '',
+                custom_nama: initialProductName ? '' : currentData.custom_nama, // Clear custom_nama if reverting
+                purchase_detail_id: '', // Clear selected purchase
                 quantity: 0,
             }));
-            setUseCustomName(false);
+            setUseCustomName(!initialProductName); // Revert useCustomName based on initialProductName
         }
-    }, [selectedPurchaseDetail, existingProductsData, setData]);
+    }, [
+        selectedPurchaseDetail, 
+        existingProductsData, 
+        setData, 
+        initialProductName, 
+        initialCategoryId, 
+        initialProductImage, 
+        initialMargin, 
+        defaultProfitMargin
+    ]);
 
 
     useEffect(() => {
