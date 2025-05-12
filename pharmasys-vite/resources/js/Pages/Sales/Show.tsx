@@ -22,6 +22,7 @@ interface SalesShowProps {
 }
 
 export default function SalesShow({ sale }: SalesShowProps) {
+    console.log('SalesShow component rendered with sale:', sale); // Debug log
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: route('dashboard') },
         { title: 'Sales', href: route('sales.index') },

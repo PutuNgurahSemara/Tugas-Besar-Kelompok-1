@@ -4,8 +4,9 @@ import { Sidebar } from '@/components/app-sidebar';
 import { AppHeader } from '@/components/app-header';
 import { cn } from '@/lib/utils';
 import { FlashMessage } from '@/components/flash-message';
-import { usePage } from '@inertiajs/react'; 
-import { type BreadcrumbItem, type PageProps } from '@/types'; 
+import { usePage } from '@inertiajs/react';
+import { type BreadcrumbItem, type PageProps } from '@/types';
+import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 
 
 interface AppLayoutProps {
@@ -13,9 +14,12 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, breadcrumbs }: PropsWithChildren<AppLayoutProps>) {
-  const { flash, success, error } = usePage<PageProps>().props; 
+  const { flash, success, error } = usePage<PageProps>().props;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [breakpoint, setBreakpoint] = useState<'mobile'|'tablet'|'desktop'>('desktop');
+
+  // Initialize keyboard shortcuts
+  useKeyboardShortcut();
 
   // Deteksi breakpoint untuk layout responsif
   useEffect(() => {

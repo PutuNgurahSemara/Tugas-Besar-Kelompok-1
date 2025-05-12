@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge'; // Added Badge import
 import { format, differenceInDays, isPast, addDays } from 'date-fns'; // Import more date-fns functions
 import { useState, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
+import { useAuth } from '../../hooks/useAuth'; // Explicitly set relative path again
 
 interface Category {
     id: number;
@@ -36,7 +37,7 @@ interface Produk {
 
 interface ProdukWithRelations extends Produk {
     category: Category | null;
-    total_stock: number; 
+    total_stock: number;
     available_stock: number; // Assuming this is also available or can be derived from total_stock if sales not tracked here
     earliest_expiry: string | null;
     is_out_of_stock: boolean; // From accessor
@@ -48,7 +49,7 @@ interface ProdukIndexProps {
     filters: {
         search: string | null;
         perPage: number;
-        sort_price?: string; 
+        sort_price?: string;
     };
     flash?: {
         success?: string;
@@ -70,31 +71,32 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ProdukIndex() {
-    const { 
-        produk: produkData, 
-        flash, 
-        filters, 
-        pageTitle, 
-        links, 
-        lowStockThreshold 
+    const {
+        produk: produkData,
+        flash,
+        filters,
+        pageTitle,
+        links,
+        lowStockThreshold
     } = usePage<ProdukIndexProps>().props;
-    
+
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
     const [deleteDialog, setDeleteDialog] = useState({
         isOpen: false,
         productId: 0,
         productName: '',
     });
+    const { hasRole } = useAuth(); // Get the 'hasRole' function for role checking
 
     const reloadData = useCallback(
         debounce((query, perPage) => {
             const currentUrl = window.location.pathname;
-            router.get(currentUrl, { 
-                search: query, 
-                perPage: perPage 
-            }, { 
+            router.get(currentUrl, {
+                search: query,
+                perPage: perPage
+            }, {
                 preserveState: true,
-                replace: true 
+                replace: true
             });
         }, 300),
         []
@@ -107,12 +109,12 @@ export default function ProdukIndex() {
     const handlePerPageChange = (value: string) => {
         const newPerPage = parseInt(value, 10);
         const currentUrl = window.location.pathname;
-        router.get(currentUrl, { 
+        router.get(currentUrl, {
             search: filters.search,
-            perPage: newPerPage 
-        }, { 
+            perPage: newPerPage
+        }, {
             preserveState: true,
-            replace: true 
+            replace: true
         });
     };
 
@@ -138,6 +140,7 @@ export default function ProdukIndex() {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <h1 className="text-2xl font-semibold">{pageTitle || 'Products'}</h1>
                 <div className="flex flex-wrap items-center gap-2">
+                    {/* Keep Export button for all roles? Or add permission check? Assuming all can export for now */}
                     <ActionButton
                         icon={FileSpreadsheet}
                         tooltip="Export to Excel"
@@ -146,13 +149,16 @@ export default function ProdukIndex() {
                     >
                         Export
                     </ActionButton>
-                    <ActionButton
-                        icon={Plus}
-                        tooltip="Add new product"
-                        onClick={() => router.visit(route('produk.create'))}
-                    >
-                        Add Product
-                    </ActionButton>
+                    {/* Add Product button - Only for Admin */}
+                    {hasRole('admin') && (
+                        <ActionButton
+                            icon={Plus}
+                            tooltip="Add new product"
+                            onClick={() => router.visit(route('produk.create'))}
+                        >
+                            Add Product
+                        </ActionButton>
+                    )}
                 </div>
             </div>
             <FlashMessage flash={flash} />
@@ -176,17 +182,17 @@ export default function ProdukIndex() {
                         ))}
                     </SelectContent>
                 </Select>
-                <Select 
-                    value={filters.sort_price || ''} 
+                <Select
+                    value={filters.sort_price || ''}
                     onValueChange={(value) => {
                         const currentUrl = window.location.pathname;
-                        router.get(currentUrl, { 
+                        router.get(currentUrl, {
                             ...filters,
                             search: searchQuery,
                             sort_price: value === 'default_sort' ? undefined : value // Handle special value
-                        }, { 
-                            preserveState: true, 
-                            replace: true 
+                        }, {
+                            preserveState: true,
+                            replace: true
                         });
                     }}
                 >
@@ -201,7 +207,7 @@ export default function ProdukIndex() {
                 </Select>
                 {/* TODO: Add "Newly Added" filter here later */}
             </div>
-            
+
             {/* Links for special views - can be styled as buttons or tabs */}
             <div className="mb-4 flex space-x-2">
                 {links?.all && <Link href={links.all}><Button variant={pageTitle === 'All Products' ? 'default' : 'secondary'}>All Products</Button></Link>}
@@ -230,16 +236,16 @@ export default function ProdukIndex() {
                         }
 
                         return (
-                            <Card 
-                                key={product.id} 
+                            <Card
+                                key={product.id}
                                 className="flex flex-col transition-all duration-300 ease-in-out hover:scale-102 hover:shadow-lg dark:hover:border-slate-700"
                             >
                                 <CardHeader>
                                     {product.image && (
-                                        <img 
-                                            src={`/storage/${product.image}`} 
-                                            alt={product.nama} 
-                                            className="w-full h-40 object-cover rounded-t-md mb-2" 
+                                        <img
+                                            src={`/storage/${product.image}`}
+                                            alt={product.nama}
+                                            className="w-full h-40 object-cover rounded-t-md mb-2"
                                         />
                                     )}
                                     <CardTitle className="text-lg truncate">{product.nama}</CardTitle>
@@ -247,7 +253,7 @@ export default function ProdukIndex() {
                                 </CardHeader>
                                 <CardContent className="flex-grow space-y-2">
                                     <div className="flex items-center">
-                                        <p className="mr-2"><span className="font-semibold">Stock:</span> {product.total_stock ?? '0'}</p> 
+                                        <p className="mr-2"><span className="font-semibold">Stock:</span> {product.total_stock ?? '0'}</p>
                                         {/* Changed to total_stock for consistency with low stock logic */}
                                         {(product.total_stock === 0) && (
                                             <Badge variant="destructive" className="text-xs">Out of Stock</Badge>
@@ -268,6 +274,7 @@ export default function ProdukIndex() {
                                 </CardContent>
                                 <div className="p-4 border-t mt-auto">
                                     <div className="flex items-center justify-end gap-2">
+                                        {/* View Button - Assuming all roles can view */}
                                         <ActionButton
                                             icon={Eye}
                                             tooltip="View details"
@@ -275,27 +282,36 @@ export default function ProdukIndex() {
                                             size="sm"
                                             onClick={() => router.visit(route('produk.show', product.id))}
                                         />
-                                        <ActionButton
-                                            icon={PackagePlus} // Icon for Restock
-                                            tooltip="Restock product"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => router.visit(route('produk.create', { source_product_id: product.id }))}
-                                        />
-                                        <ActionButton
-                                            icon={Edit}
-                                            tooltip="Edit product"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => router.visit(route('produk.edit', product.id))}
-                                        />
-                                        <ActionButton
-                                            icon={Trash2}
-                                            tooltip="Delete product"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleDeleteClick(product.id, product.nama)}
-                                        />
+                                        {/* Restock Button - Only for Admin */}
+                                        {hasRole('admin') && (
+                                            <ActionButton
+                                                icon={PackagePlus} // Icon for Restock
+                                                tooltip="Restock product"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => router.visit(route('produk.create', { source_product_id: product.id }))}
+                                            />
+                                        )}
+                                        {/* Edit Button - Only for Admin */}
+                                        {hasRole('admin') && (
+                                            <ActionButton
+                                                icon={Edit}
+                                                tooltip="Edit product"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => router.visit(route('produk.edit', product.id))}
+                                            />
+                                        )}
+                                        {/* Delete Button - Only for Admin */}
+                                        {hasRole('admin') && (
+                                            <ActionButton
+                                                icon={Trash2}
+                                                tooltip="Delete product"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleDeleteClick(product.id, product.nama)}
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             </Card>
@@ -308,7 +324,7 @@ export default function ProdukIndex() {
                     <p className="mt-2">Please add new products or adjust your filters.</p>
                 </div>
             )}
-            
+
             {produkData.data.length > 0 && (
                 <div className="mt-6">
                     <Pagination links={produkData.links} meta={produkData.meta} />

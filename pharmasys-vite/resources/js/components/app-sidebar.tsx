@@ -13,7 +13,7 @@ import {
   UserCircle, Moon, Sun, ChevronRight, ChevronDown, Menu as MenuIcon,
   Globe
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react'; // Removed useMemo
 import { router } from '@inertiajs/react';
 import { 
   DropdownMenu,
@@ -34,25 +34,23 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
-  const { auth } = usePage<SharedData>().props;
+  const { auth } = usePage<SharedData>().props; // Removed currentUrl from here
   const getInitials = useInitials();
   const { t, language, changeLanguage } = useTranslation();
   const { hasPermission, hasRole, hasAccess } = usePermission();
 
   // Definisi menu berdasarkan bahasa saat ini dan hak akses pengguna
-  const mainNavItems: NavItem[] = [
+  const mainNavItems: NavItem[] = [ // Not memoized anymore
     {
       title: t('dashboard'),
       href: route('dashboard'),
       icon: LayoutGrid,
     },
-    // Item menu kategori hanya ditampilkan jika pengguna memiliki hak akses
     hasAccess('view-category') ? {
       title: t('categories'),
       href: route('categories.index'),
       icon: Folder,
     } : null,
-    // Item menu pembelian 
     hasAccess('view-purchase') ? {
       title: t('purchase'),
       href: route('purchases.index'),
@@ -72,7 +70,6 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         }
       ].filter(Boolean) as NavItem[],
     } : null,
-    // Item menu produk
     hasAccess('view-products') ? {
       title: t('products'),
       href: route('produk.index'),
@@ -96,7 +93,6 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         } : null
       ].filter(Boolean) as NavItem[],
     } : null,
-    // Item menu penjualan
     hasAccess('view-sales') ? {
       title: t('sales'),
       href: route('sales.index'),
@@ -112,13 +108,11 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         } : null
       ].filter(Boolean) as NavItem[],
     } : null,
-    // Item menu supplier
     hasAccess('view-supplier') ? {
       title: t('supplier'),
       href: route('suppliers.index'),
       icon: User,
     } : null,
-    // Item menu laporan
     hasAccess('view-reports') ? {
       title: t('reports'),
       href: route('reports.sales'),
@@ -134,7 +128,6 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         }
       ],
     } : null,
-    // Item menu hak akses (hanya untuk admin)
     hasAccess('view-access-control') ? {
       title: t('access'),
       href: '#',
@@ -154,9 +147,9 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         } : null
       ].filter(Boolean) as NavItem[],
     } : null,
-  ].filter(Boolean) as NavItem[]; // Filter null items
+  ].filter(Boolean) as NavItem[];
 
-  const secondaryNavItems: NavItem[] = [
+  const secondaryNavItems: NavItem[] = [ // Not memoized anymore
     {
       title: t('settings'),
       href: route('settings.index'),
@@ -174,23 +167,17 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     },
   ];
 
-  // Deteksi breakpoint dan perangkat
   useEffect(() => {
     setMounted(true);
-    
-    // Deteksi tema
     const isSystemDarkMode = document.documentElement.classList.contains('dark');
     setIsDarkMode(isSystemDarkMode);
     applyThemeToSidebar(isSystemDarkMode);
-    
-    // Deteksi tema dari localStorage juga
     const savedTheme = localStorage.getItem('vite-ui-theme');
     if (savedTheme) {
       const isDark = savedTheme === 'dark';
       setIsDarkMode(isDark);
       applyThemeToSidebar(isDark);
     }
-    
     const handleResize = () => {
       const width = window.innerWidth;
       if (width < 640) {
@@ -199,30 +186,21 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         setBreakpoint('tablet');
       } else {
         setBreakpoint('desktop');
-        // Auto open sidebar on desktop
         setIsOpen(true);
       }
     };
-
-    // Initial check
     handleResize();
     window.addEventListener('resize', handleResize);
-    
-    // Listen untuk event perubahan bahasa
     const handleLanguageChange = () => {
-      // Re-render sidebar saat bahasa berubah
       setMounted(prevState => !prevState);
     };
-    
     window.addEventListener('languageChanged', handleLanguageChange);
-    
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('languageChanged', handleLanguageChange);
     };
   }, [setIsOpen]);
   
-  // Function untuk mengaplikasikan tema ke sidebar
   const applyThemeToSidebar = (isDark: boolean) => {
     const sidebar = document.querySelector('.sidebar');
     if (sidebar) {
@@ -236,40 +214,28 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     }
   };
 
-  // Perbaikan: daripada mengandalkan mounted, gunakan clientSide rendering
   if (typeof window === 'undefined') {
     return null;
   }
 
-  // Fungsi untuk toggle dark mode
   const toggleDarkMode = () => {
-    // Toggle class pada document
     document.documentElement.classList.toggle('dark');
-    
-    // Update state
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
-    
-    // Simpan ke localStorage
     localStorage.setItem('vite-ui-theme', newDarkMode ? 'dark' : 'light');
-    
-    // Aplikasikan tema ke sidebar
     applyThemeToSidebar(newDarkMode);
   };
   
-  // Fungsi untuk mengubah bahasa
   const handleChangeLanguage = (lang: 'id' | 'en') => {
     changeLanguage(lang);
   };
 
-  // Fungsi untuk logout
   const handleLogout = () => {
     if (confirm(t('logout.confirm'))) {
       router.post(route('logout'));
     }
   };
   
-  // Toggle expand/collapse submenu
   const toggleSubmenu = (title: string) => {
     setExpandedItems(prev => 
       prev.includes(title) 
@@ -278,35 +244,24 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     );
   };
   
-  // Check if submenu is expanded
   const isExpanded = (title: string) => {
     return expandedItems.includes(title);
   };
   
-  // Dynamic sidebar classes based on breakpoint and open state
   const sidebarClasses = cn(
     'fixed left-0 top-0 h-screen bg-gray-900 text-gray-100 overflow-hidden border-r shadow-lg flex flex-col z-40 transition-all duration-300 ease-in-out sidebar [perspective:800px]',
-    // Width classes berdasarkan state dan breakpoint
     {
-      // Desktop/tablet collapsed (ikon saja)
       'w-16': !isOpen && breakpoint !== 'mobile',
-      // Desktop/tablet expanded (full sidebar)
       'w-64': isOpen && breakpoint !== 'mobile',
-      // Mobile - full width saat terbuka
       'w-3/4 max-w-xs': breakpoint === 'mobile',
     },
-    // Position classes
     {
-      // Desktop dan tablet - selalu visible (sesuai state collapsed/expanded)
       'translate-x-0': (isOpen || breakpoint !== 'mobile'),
-      // Mobile - slide out ketika tertutup
       '-translate-x-full': !isOpen && breakpoint === 'mobile',
     },
-    // Tema classes
     isDarkMode ? 'dark-theme' : 'light-theme'
   );
 
-  // Overlay for mobile
   const overlayClasses = cn(
     'fixed inset-0 bg-black/50 z-30 transition-opacity',
     {
@@ -315,26 +270,19 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     }
   );
 
-  // Fungsi untuk menentukan apakah rute aktif
+  // Original isActive function
   const isActive = (href: string) => {
-    // Dapatkan bagian rute saat ini, contoh: 'categories.index'
     const currentRoute = route().current() || '';
-    
-    // Periksa apakah rute saat ini sama dengan href yang diberikan
     if (currentRoute === href.toString()) {
       return true;
     }
-    
-    // Cek juga rute berbasis nama (misalnya 'categories.index' dimulai dengan 'categories')
     if (href.toString().includes('.')) {
       const baseRoute = href.toString().split('.')[0];
       return currentRoute.startsWith(baseRoute);
     }
-    
     return false;
   };
 
-  // Hamburger menu untuk mobile (fixed position)
   const fixedHamburgerButton = !isOpen && breakpoint === 'mobile' && (
     <Button
       variant="default"
@@ -346,7 +294,6 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     </Button>
   );
 
-  // Toggle button untuk semua ukuran layar
   const sidebarToggleBtn = (
     <Button
       variant="ghost"
@@ -365,23 +312,19 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     </Button>
   );
 
-  // Render main navigation item
   const renderNavItem = (item: NavItem) => {
-    // Submenu item handling
     if (item.submenu) {
-      // Menggunakan tampilan accordion untuk semua device (mobile & desktop)
       return (
         <div key={item.title} className="mb-0.5">
           {isOpen || breakpoint === 'mobile' ? (
-            // Expanded sidebar view
             <div>
               <button
                 onClick={() => toggleSubmenu(item.title)}
                 className={cn(
                   'flex items-center justify-between w-full rounded-md text-sm font-medium transition-all duration-200 ease-in-out py-2',
-                  isActive(item.href.toString())
-                    ? 'bg-green-600 text-white border-l-4 border-green-400 pl-2 pr-3 scale-100' // Active state
-                    : 'text-gray-300 px-3 hover:bg-gray-800 hover:text-white hover:scale-105 hover:-translate-y-px hover:rotate-y-1', // Non-active state with hover
+                  isActive(item.href.toString()) // Using original isActive
+                    ? 'bg-green-600 text-white border-l-4 border-green-400 pl-2 pr-3 scale-100'
+                    : 'text-gray-300 px-3 hover:bg-gray-800 hover:text-white hover:scale-105 hover:-translate-y-px hover:rotate-y-1',
                 )}
               >
                 <div className="flex items-center">
@@ -394,8 +337,6 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                   <ChevronRight className="h-4 w-4" />
                 )}
               </button>
-              
-              {/* Render submenu accordion */}
               {isExpanded(item.title) && (
                 <div className="ml-8 pl-3 border-l border-gray-700 mt-1 mb-2 space-y-1">
                   {item.submenu.map((subItem, index) => (
@@ -404,9 +345,9 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                       href={subItem.href}
                       className={cn(
                         'flex items-center rounded-md text-sm transition-all duration-200 ease-in-out py-2',
-                        isActive(subItem.href.toString())
-                          ? 'bg-green-600 text-white font-medium border-l-4 border-green-400 pl-2 pr-3 scale-100' // Active state
-                          : 'text-gray-400 px-3 hover:bg-gray-700 hover:text-white hover:scale-105 hover:-translate-y-px hover:translate-x-1', // Non-active state with hover
+                        isActive(subItem.href.toString()) // Using original isActive
+                          ? 'bg-green-600 text-white font-medium border-l-4 border-green-400 pl-2 pr-3 scale-100'
+                          : 'text-gray-400 px-3 hover:bg-gray-700 hover:text-white hover:scale-105 hover:-translate-y-px hover:translate-x-1',
                       )}
                     >
                       <span className="block transform transition-transform duration-200 ease-in-out group-hover:translate-x-0.5">{subItem.title}</span>
@@ -416,15 +357,14 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               )}
             </div>
           ) : (
-            // Icon-only collapsed view
-            <div className="relative group"> {/* Added group for tooltip positioning */}
+            <div className="relative group">
               <Link
                 href={item.href}
                 className={cn(
                   'flex items-center rounded-md text-sm font-medium transition-all duration-150 ease-in-out',
                   isActive(item.href.toString()) 
-                    ? 'bg-green-600 text-white' // Active state for collapsed
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white', // Non-active hover for collapsed
+                    ? 'bg-green-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white',
                   'justify-center p-2'
                 )}
               >
@@ -435,12 +375,11 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                   />
                 )}
               </Link>
-              {/* Tooltip for collapsed view */}
               <div className={cn(
                 "absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1",
                 "bg-gray-700 text-white text-xs rounded-md shadow-lg",
                 "opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 whitespace-nowrap",
-                "pointer-events-none" // Prevent tooltip from capturing mouse events
+                "pointer-events-none"
               )}>
                 {item.title}
               </div>
@@ -450,23 +389,22 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       );
     }
     
-    // Regular item without submenu
     return (
       <div key={item.title} className="mb-0.5">
         <Link
           href={item.href}
           className={cn(
-            'flex items-center rounded-md text-sm font-medium transition-all duration-200 ease-in-out relative group', // Added relative group
+            'flex items-center rounded-md text-sm font-medium transition-all duration-200 ease-in-out relative group',
             isActive(item.href.toString())
-              ? 'bg-green-600 text-white border-l-4 border-green-400 scale-100' // Active state (expanded)
-              : 'text-gray-300 hover:bg-gray-800 hover:text-white hover:scale-105 hover:-translate-y-px hover:rotate-y-1', // Non-active state with hover (expanded)
+              ? 'bg-green-600 text-white border-l-4 border-green-400 scale-100'
+              : 'text-gray-300 hover:bg-gray-800 hover:text-white hover:scale-105 hover:-translate-y-px hover:rotate-y-1',
             (isOpen || breakpoint === 'mobile')
-              ? (isActive(item.href.toString()) ? 'pl-2 pr-3 py-2' : 'px-3 py-2') // Padding for expanded
-              : cn( // Classes for collapsed view
+              ? (isActive(item.href.toString()) ? 'pl-2 pr-3 py-2' : 'px-3 py-2')
+              : cn(
                   'justify-center p-2',
                   isActive(item.href.toString())
-                    ? 'bg-green-600 text-white border-l-4 border-green-500' // Active state (collapsed)
-                    : 'hover:bg-gray-700' // Non-active hover for collapsed
+                    ? 'bg-green-600 text-white border-l-4 border-green-500'
+                    : 'hover:bg-gray-700'
                 ) 
           )}
         >
@@ -475,14 +413,13 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               iconNode={item.icon} 
               className={cn(
                 "h-5 w-5 shrink-0 transition-transform duration-150 ease-in-out", 
-                (isOpen || breakpoint === 'mobile') ? "mr-3" : "group-hover:scale-110" // Scale icon on hover only when collapsed
+                (isOpen || breakpoint === 'mobile') ? "mr-3" : "group-hover:scale-110"
               )}
             />
           )}
           {(isOpen || breakpoint === 'mobile') && (
             <span className="transition-opacity duration-200">{item.title}</span>
           )}
-          {/* Tooltip for collapsed regular items */}
           {!(isOpen || breakpoint === 'mobile') && (
             <div className={cn(
               "absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1",
@@ -500,39 +437,25 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
   return (
     <>
-      {/* Background overlay for mobile */}
       <div 
         className={overlayClasses} 
         onClick={() => setIsOpen(false)}
         aria-hidden="true"
       />
-      
-      {/* Fixed hamburger button for mobile */}
       {fixedHamburgerButton}
-      
       <div className={sidebarClasses}>
-        {/* Header dengan toggle button */}
         <div className="flex items-center justify-between p-3 border-b border-gray-800 h-14 shrink-0 relative">
           <Link href="/dashboard" className="flex items-center">
             <AppLogo className="text-white" size="sm" showText={isOpen} isCollapsed={!isOpen} />
           </Link>
-          
-          {/* Tombol toggle selalu terlihat */}
           {sidebarToggleBtn}
         </div>
-        
-        {/* Navigation - perbaiki spacing */}
         <div className="flex-1 py-2 overflow-y-auto">
-          {/* Main Nav */}
           <div className="px-2 space-y-0.5">
             {mainNavItems.map(renderNavItem)}
           </div>
-          
-          {/* Secondary Nav */}
           <div className={cn("px-2 pt-2 border-t border-gray-800 mt-2", !isOpen && breakpoint !== 'mobile' ? "flex flex-col items-center" : "")}>
             {secondaryNavItems.map(renderNavItem)}
-            
-            {/* Language Selector */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -574,8 +497,6 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            
-            {/* Theme Toggle Button */}
             <button
               className={cn(
                 'flex items-center rounded-md text-sm font-medium transition-colors mt-1',
@@ -596,8 +517,6 @@ export function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
             </button>
           </div>
         </div>
-        
-        {/* Footer with User Profile */}
         {auth?.user && (
           <div className="p-3 border-t border-gray-800 mt-auto">
             {isOpen || breakpoint === 'mobile' ? (

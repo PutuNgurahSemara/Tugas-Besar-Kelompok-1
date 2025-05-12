@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format } from 'date-fns';
 import { useState, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
+import { useAuth } from '../../hooks/useAuth'; // Import useAuth
 
 // Definisikan tipe relasi jika belum ada
 interface SaleWithRelations extends Sale {
@@ -43,6 +44,7 @@ export default function SalesIndex() {
         isOpen: false,
         saleId: 0,
     });
+    const { hasRole } = useAuth(); // Get hasRole function
 
     const handleDeleteClick = (id: number) => {
         setDeleteDialog({
@@ -153,13 +155,15 @@ export default function SalesIndex() {
                                                         router.get(url); 
                                                     }}
                                                 />
-                                                <ActionButton
-                                                    icon={Trash2}
-                                                    tooltip="Delete Sale"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleDeleteClick(sale.id)}
-                                                />
+                                                {hasRole('admin') && (
+                                                    <ActionButton
+                                                        icon={Trash2}
+                                                        tooltip="Delete Sale"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteClick(sale.id)}
+                                                    />
+                                                )}
                                             </div>
                                         </TableCell>
                                     </TableRow>

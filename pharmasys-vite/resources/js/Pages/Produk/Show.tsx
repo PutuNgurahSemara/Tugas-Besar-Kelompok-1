@@ -4,6 +4,7 @@ import { Head, Link } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
+import { useAuth } from '../../hooks/useAuth'; // Import useAuth
 
 interface Category {
     id: number;
@@ -32,6 +33,7 @@ interface ProdukShowProps {
 }
 
 export default function ProdukShow({ produk, totalStock, earliestExpiryDate }: ProdukShowProps) {
+    const { hasRole } = useAuth(); // Get hasRole function
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: route('dashboard') },
         { title: 'Products', href: route('produk.index') },
@@ -44,9 +46,12 @@ export default function ProdukShow({ produk, totalStock, earliestExpiryDate }: P
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold">Detail Produk</h2>
                 <div className="space-x-2">
-                    <Link href={route('produk.edit', produk.id)}>
-                        <Button variant="secondary">Edit Produk</Button>
-                    </Link>
+                    {/* Conditionally render Edit button */}
+                    {hasRole('admin') && (
+                        <Link href={route('produk.edit', produk.id)}>
+                            <Button variant="secondary">Edit Produk</Button>
+                        </Link>
+                    )}
                     <Link href={route('produk.index')}>
                         <Button variant="ghost">Kembali</Button>
                     </Link>

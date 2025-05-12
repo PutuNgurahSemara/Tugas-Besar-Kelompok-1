@@ -189,6 +189,9 @@ class SaleController extends Controller
      */
     public function destroy(Sale $sale)
     {
+        if (Auth::user()->hasRole('sales-person')) {
+            return redirect()->route('sales.index')->with('error', 'You are not authorized to delete sales.');
+        }
         $sale->delete();
         return redirect()->route('sales.index')->with('success', 'Sale deleted successfully.');
     }

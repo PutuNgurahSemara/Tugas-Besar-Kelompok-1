@@ -89,7 +89,7 @@ export default function SalesCreate() {
                     );
                 } else {
                     // Reverting to multi-argument string-based showToast based on TS errors
-                    showToast(t('error'), t('stock.not.enough.cart', { product: product.nama }), 'error'); 
+                    showToast(t('error'), t('stock.not.enough.cart') + ": " + product.nama, 'error'); 
                     return currentCart; // Not enough stock to add more
                 }
             } else {
@@ -97,7 +97,7 @@ export default function SalesCreate() {
                     return [...currentCart, { ...product, cart_quantity: 1 }];
                 } else {
                     // Reverting to multi-argument string-based showToast
-                    showToast(t('error'), t('out.of.stock.cart', { product: product.nama }), 'error'); 
+                    showToast(t('error'), t('out.of.stock.cart') + ": " + product.nama, 'error'); 
                     return currentCart; // Product is out of stock
                 }
             }
@@ -162,7 +162,7 @@ export default function SalesCreate() {
             total_price: totalPrice, // Send calculated total price
         };
         
-        post(route('sales.store'), dataToSend, { // dataToSend is the second argument, options is the third
+        router.post(route('sales.store'), dataToSend, { // dataToSend is the second argument, options is the third
             onSuccess: () => {
                 setCart([]);
                 reset('amount_paid', 'payment_method'); // Reset only relevant fields
