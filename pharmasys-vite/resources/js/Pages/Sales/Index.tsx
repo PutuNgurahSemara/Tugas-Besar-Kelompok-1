@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format } from 'date-fns';
 import { useState, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
-import { useAuth } from '../../hooks/useAuth'; // Import useAuth
+import { usePermission } from '@/hooks/use-permission';
 
 // Definisikan tipe relasi jika belum ada
 interface SaleWithRelations extends Sale {
@@ -44,7 +44,7 @@ export default function SalesIndex() {
         isOpen: false,
         saleId: 0,
     });
-    const { hasRole } = useAuth(); // Get hasRole function
+    const { hasPermission } = usePermission();
 
     const handleDeleteClick = (id: number) => {
         setDeleteDialog({
@@ -71,9 +71,11 @@ export default function SalesIndex() {
         []
     );
 
+    const perPageFromFilters = filters.perPage; // Extract to a variable
+
     useEffect(() => {
-        reloadData(searchQuery, filters.perPage);
-    }, [searchQuery, filters.perPage, reloadData]);
+        reloadData(searchQuery, perPageFromFilters);
+    }, [searchQuery, perPageFromFilters, reloadData]);
 
     const handlePerPageChange = (value: string) => {
         router.get(route('sales.index'), { search: filters.search, perPage: parseInt(value, 10) }, { preserveState: true, replace: true });
@@ -98,8 +100,9 @@ export default function SalesIndex() {
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-2">
-                            <Select value={String(filters.perPage)} onValueChange={handlePerPageChange}>
+                        {/* Temporarily remove Select for perPage to isolate error */}
+                        <div>
+                            {/* <Select value={String(filters.perPage)} onValueChange={handlePerPageChange}>
                                 <SelectTrigger className="w-[70px]">
                                     <SelectValue placeholder={filters.perPage} />
                                 </SelectTrigger>
@@ -109,7 +112,8 @@ export default function SalesIndex() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <span className="text-sm text-muted-foreground">entries</span>
+                            <span className="text-sm text-muted-foreground">entries</span> */}
+                            <span className="text-sm text-muted-foreground">{filters.perPage} entries per page (Selector temporarily hidden)</span>
                         </div>
                         <div className="w-full max-w-sm">
                              <Input 
@@ -142,20 +146,16 @@ export default function SalesIndex() {
                                         <TableCell>{sale.user?.name ?? '-'}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                {/* Assuming a sales.show route exists for viewing details */}
-                                                <ActionButton
-                                                    icon={Eye}
-                                                    tooltip="View Details"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        const url = route('sales.show', sale.id);
-                                                        console.log(`Generated URL for sale ID ${sale.id}: ${url}`); // For browser console
-                                                        // Try with router.get explicitly
-                                                        router.get(url); 
-                                                    }}
-                                                />
-                                                {hasRole('admin') && (
+                                                <Link href={route('sales.show', sale.id)} aria-label="View Details">
+                                                    <ActionButton
+                                                        icon={Eye}
+                                                        tooltip="View Details"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        // onClick event is no longer needed here as Link handles navigation
+                                                    />
+                                                </Link>
+                                                {hasPermission('delete-sale') && (
                                                     <ActionButton
                                                         icon={Trash2}
                                                         tooltip="Delete Sale"

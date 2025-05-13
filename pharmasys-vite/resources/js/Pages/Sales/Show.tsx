@@ -1,11 +1,14 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type Sale, type User, type SaleItem, type Produk } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
+import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
+import { usePermission } from '@/hooks/use-permission';
+import { useState } from 'react';
 
 interface SaleItemWithProduk extends SaleItem {
     produk: Produk | null;
@@ -18,11 +21,16 @@ interface SaleFull extends Sale {
 
 interface SalesShowProps {
     sale: SaleFull;
-    [key: string]: any; // For PageProps compatibility
+    canDelete: boolean;
 }
 
-export default function SalesShow({ sale }: SalesShowProps) {
-    console.log('SalesShow component rendered with sale:', sale); // Debug log
+export default function SalesShow({ sale, canDelete }: SalesShowProps) {
+    const { hasPermission } = usePermission();
+    const [deleteDialog, setDeleteDialog] = useState({
+        isOpen: false,
+        saleId: 0,
+    });
+
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: route('dashboard') },
         { title: 'Sales', href: route('sales.index') },
@@ -31,17 +39,45 @@ export default function SalesShow({ sale }: SalesShowProps) {
 
     const totalItems = sale.items.reduce((sum, item) => sum + item.quantity, 0);
 
+    const handleDeleteClick = (id: number) => {
+        setDeleteDialog({
+            isOpen: true,
+            saleId: id,
+        });
+    };
+
+    const handleDeleteConfirm = () => {
+        router.delete(route('sales.destroy', deleteDialog.saleId), {
+            onSuccess: () => {
+                setDeleteDialog({ isOpen: false, saleId: 0 });
+                router.visit(route('sales.index'));
+            },
+            onError: () => {
+                setDeleteDialog({ isOpen: false, saleId: 0 });
+            }
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Sale Detail #${sale.id}`} />
 
-            <div className="mb-4">
+            <div className="flex justify-between items-center mb-4">
                 <Link href={route('sales.index')}>
-                    <Button variant="secondary"> {/* Kept "secondary" from previous successful change */}
+                    <Button variant="secondary">
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Back to Sales List
                     </Button>
                 </Link>
+                {canDelete && hasPermission('delete-sale') && (
+                    <Button 
+                        variant="destructive"
+                        onClick={() => handleDeleteClick(sale.id)}
+                    >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Sale
+                    </Button>
+                )}
             </div>
 
             <Card className="mb-6">
@@ -61,7 +97,7 @@ export default function SalesShow({ sale }: SalesShowProps) {
                             <p><strong>Total Items:</strong> {totalItems}</p>
                             <p><strong>Amount Paid:</strong> Rp {sale.amount_paid?.toLocaleString('id-ID') ?? 'N/A'}</p>
                             <p><strong>Total Price:</strong> Rp {sale.total_price.toLocaleString('id-ID')}</p>
-                            <p><strong>Change:</strong> Rp {( (sale.amount_paid ?? 0) - sale.total_price).toLocaleString('id-ID')}</p>
+                            <p><strong>Change:</strong> Rp {((sale.amount_paid ?? 0) - sale.total_price).toLocaleString('id-ID')}</p>
                         </div>
                     </div>
                 </CardContent>
@@ -102,6 +138,14 @@ export default function SalesShow({ sale }: SalesShowProps) {
                     </Table>
                 </CardContent>
             </Card>
+
+            <DeleteConfirmationDialog
+                isOpen={deleteDialog.isOpen}
+                onClose={() => setDeleteDialog({ isOpen: false, saleId: 0 })}
+                onConfirm={handleDeleteConfirm}
+                title="Delete Sale"
+                description={`Are you sure you want to delete this sale? This action cannot be undone.`}
+            />
         </AppLayout>
     );
 }

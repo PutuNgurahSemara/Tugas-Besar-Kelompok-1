@@ -49,7 +49,7 @@ class User extends Authenticatable
      * Load permissions relationship to the model.
      * Eager loading untuk memastikan relationship roles dan permissions selalu dimuat
      */
-    protected $with = ['roles'];
+    protected $with = ['roles', 'roles.permissions'];
 
     /**
      * Get the user's permissions list (untuk frontend, agar tidak menimpa relasi Eloquent permissions)
@@ -75,6 +75,9 @@ class User extends Authenticatable
      */
     public function getUserPermissions()
     {
+        // Reset permission cache untuk user ini
+        $this->forgetCachedPermissions();
+        
         // Pastikan roles dimuat
         if (!$this->relationLoaded('roles')) {
             $this->load('roles.permissions');

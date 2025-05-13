@@ -9,7 +9,6 @@ use Spatie\Permission\PermissionRegistrar;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
-
     /**
      * Run the database seeds.
      *
@@ -17,39 +16,106 @@ class RolesAndPermissionsSeeder extends Seeder
      */
     public function run()
     {
-        // Truncate tabel permissions dan roles untuk menghindari duplikasi
-        Permission::truncate();
-        Role::truncate();
-        
-        // Reset cached roles and permissions
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        // Reset permissions cache
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        //create permissions
+        // Truncate tables (PostgreSQL version)
+        app('db')->statement('TRUNCATE TABLE role_has_permissions CASCADE');
+        app('db')->statement('TRUNCATE TABLE model_has_roles CASCADE');
+        app('db')->statement('TRUNCATE TABLE model_has_permissions CASCADE');
+        app('db')->statement('TRUNCATE TABLE permissions CASCADE');
+        app('db')->statement('TRUNCATE TABLE roles CASCADE');
+
+        // Create permissions with more granular control
         $arrayOfPermissionNames = [
-          'view-sales', 'create-sale','destroy-sale','edit-sale',
-          'view-reports','view-category','create-category','destroy-category','edit-category',
-          'view-products','create-product','edit-product','destroy-product',
-          'view-purchase','create-purchase','edit-purchase','destroy-purchase',
-          'view-supplier','create-supplier','edit-supplier','destroy-supplier',
-          'view-users','create-user','edit-user','destroy-user',
-          'view-access-control',
-          'view-role','edit-role','destroy-role','create-role',
-          'view-permission','create-permission','edit-permission','destroy-permission',
-          'view-expired-products','view-outstock-products','backup-app','backup-db','view-settings',
-          'import-purchase', // Added permission for importing purchases
-          'export-purchase', // Added permission for exporting purchases
+            // Sales Transaction Permissions (More Granular)
+            'view-sales-list',           // View sales transaction list
+            'view-sales-details',        // View details of a specific sale
+            'create-sale',               // Create new sale
+            'delete-sale',               // Delete sale (admin only)
+            'export-sales',              // Export sales data
+            'view-sales-reports',        // View sales reports
 
+            // Products Permissions
+            'view-products',
+            'create-product',
+            'edit-product',
+            'destroy-product',
+            'view-expired-products',
+            'view-outstock-products',
+
+            // Categories Permissions
+            'view-category',
+            'create-category',
+            'edit-category',
+            'destroy-category',
+
+            // Purchase Permissions
+            'view-purchase',
+            'create-purchase',
+            'edit-purchase',
+            'destroy-purchase',
+            'import-purchase',
+            'export-purchase',
+
+            // Supplier Permissions
+            'view-supplier',
+            'create-supplier',
+            'edit-supplier',
+            'destroy-supplier',
+
+            // User Management
+            'view-users',
+            'create-user',
+            'edit-user',
+            'destroy-user',
+
+            // Access Control
+            'view-access-control',
+            'view-role',
+            'create-role',
+            'edit-role',
+            'destroy-role',
+            'view-permission',
+            'create-permission',
+            'edit-permission',
+            'destroy-permission',
+
+            // System
+            'backup-app',
+            'backup-db',
+            'view-settings',
         ];
-       $permissions = collect($arrayOfPermissionNames)->map(function ($permission) {
-           return ['name' => $permission, 'guard_name' => 'web'];
-       });
 
-      Permission::insert($permissions->toArray());
+        $permissions = collect($arrayOfPermissionNames)->map(function ($permission) {
+            return ['name' => $permission, 'guard_name' => 'web'];
+        });
 
-        // create roles and assign permissions
-        $role = Role::create(['name' => 'sales-person'])
-         ->givePermissionTo(['view-sales', 'view-reports','create-sale']);
-        $role = Role::create(['name' => 'super-admin']);
-        $role->givePermissionTo(Permission::all());
+        Permission::insert($permissions->toArray());
+
+        // Create Cashier Role with default permissions for sales
+        $cashierRole = Role::create(['name' => 'cashier']);
+        $cashierRole->givePermissionTo([
+            'view-sales-list',
+            'view-sales-details', 
+            'create-sale',
+            'view-sales-reports',
+            'view-products',
+            'view-expired-products',
+            'view-outstock-products',
+            'view-settings'
+        ]);
+
+        // Create Admin Role with all permissions
+        $adminRole = Role::create(['name' => 'admin']);
+        $adminRole->givePermissionTo(Permission::all());
+
+        // Ensure admin has explicit permission for reports
+        $adminRole->givePermissionTo([
+            'view-sales-reports',
+            'view-purchase',
+            'view-sales-list',
+            'view-sales-details'
+        ]);
     }
 }

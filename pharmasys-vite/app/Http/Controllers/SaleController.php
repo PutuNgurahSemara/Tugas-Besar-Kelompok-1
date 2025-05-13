@@ -14,6 +14,15 @@ use Illuminate\Support\Facades\Log;
 
 class SaleController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+        $this->middleware('permission:view-sales-list')->only(['index']);
+        $this->middleware('permission:view-sales-details')->only(['show']);
+        $this->middleware('permission:create-sale')->only(['create', 'store']);
+        $this->middleware('permission:delete-sale')->only(['destroy']);
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -162,7 +171,11 @@ class SaleController extends Controller
      */
     public function show(Sale $sale)
     {
-        return redirect()->route('sales.index');
+        $sale->load(['user', 'items.produk']);
+        return Inertia::render('Sales/Show', [
+            'sale' => $sale,
+            'canDelete' => Auth::user()->hasRole('admin')
+        ]);
     }
 
     /**
@@ -186,7 +199,40 @@ class SaleController extends Controller
      */
     public function destroy(Sale $sale)
     {
-        $sale->delete();
-        return redirect()->route('sales.index')->with('success', 'Sale deleted successfully.');
+        if (!Auth::user()->can('delete-sale')) {
+            return redirect()->back()->with('error', 'You do not have permission to delete sales transactions');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Return stock for each item
+            foreach ($sale->items as $item) {
+                if ($item->produk) {
+                    $remainingQty = $item->quantity;
+                    foreach ($item->produk->purchaseDetails->sortBy('expired') as $detail) {
+                        if ($remainingQty <= 0) break;
+
+                        // Calculate how much stock to return to this detail
+                        $returnQty = min($remainingQty, $item->quantity);
+                        $detail->jumlah += $returnQty;
+                        $detail->save();
+
+                        $remainingQty -= $returnQty;
+                    }
+                }
+            }
+
+            // Delete the sale items
+            $sale->items()->delete();
+            // Delete the sale
+            $sale->delete();
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Transaksi berhasil dihapus.');
+        } catch (Exception $e) {
+            DB::rollback();
+            Log::error('Error deleting sale: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal menghapus transaksi');
+        }
     }
 }

@@ -17,14 +17,24 @@ class UserSeeder extends Seeder
      */
     public function run()
     {
-        
-       $user = User::updateOrCreate(
+        // Create Super Admin
+        $admin = User::updateOrCreate(
             ['email' => 'admin@mail.com'],
             [
                 'name' => "Admin Tiarana Farma",
-                'password' => bcrypt('admin123'),
+                'password' => Hash::make('admin123'),
             ]
         );
-        $user->assignRole('super-admin');
+        $admin->assignRole('admin');
+
+        // Create Cashier
+        $cashier = User::updateOrCreate(
+            ['email' => 'udin@mail.com'],
+            [
+                'name' => "Udin",
+                'password' => Hash::make('Udin12345678'),
+            ]
+        );
+        $cashier->assignRole('cashier');
     }
 }    

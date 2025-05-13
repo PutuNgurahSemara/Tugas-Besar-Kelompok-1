@@ -108,12 +108,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('suppliers', SupplierController::class);
     });
     
-    Route::middleware('permission:view-sales')->group(function() {
-        Route::resource('sales', SaleController::class);
-        // Mengamankan rute create (POS) dengan permission tambahan
-        Route::get('sales/create', [SaleController::class, 'create'])
-            ->middleware('permission:create-sale')
-            ->name('sales.create');
+    Route::middleware('permission:view-sales-list')->group(function() {
+        // List, create and store routes
+        Route::get('sales', [SaleController::class, 'index'])->name('sales.index');
+        Route::get('sales/create', [SaleController::class, 'create'])->middleware('permission:create-sale')->name('sales.create');
+        Route::post('sales', [SaleController::class, 'store'])->middleware('permission:create-sale')->name('sales.store');
+        
+        // Show route with view-sales-details permission
+        Route::get('sales/{sale}', [SaleController::class, 'show'])
+            ->middleware('permission:view-sales-details')
+            ->name('sales.show');
+        
+        // Delete route with delete-sale permission
+        Route::delete('sales/{sale}', [SaleController::class, 'destroy'])
+            ->middleware('permission:delete-sale')
+            ->name('sales.destroy');
+            
+        // No edit/update routes needed as sales cannot be edited
+        Route::match(['get', 'put', 'patch'], 'sales/{sale}/edit', [SaleController::class, 'edit'])
+            ->name('sales.edit');
     });
 
     // Group akses kontrol - dilindungi dengan middleware view-access-control
@@ -139,13 +152,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
     });
 
-    // Reports dengan middleware permission
-    Route::middleware('permission:view-reports')->group(function() {
+    // Reports routes
+    Route::middleware('permission:view-sales-reports')->group(function() {
         Route::get('/reports/sales', [ReportController::class, 'salesReport'])->name('reports.sales');
-        Route::get('/reports/purchase', [ReportController::class, 'purchaseReport'])->name('reports.purchase');
-        // Export Routes
         Route::get('/reports/sales/export/excel', [ReportController::class, 'exportSalesExcel'])->name('reports.sales.export.excel');
         Route::get('/reports/sales/export/pdf', [ReportController::class, 'exportSalesPdf'])->name('reports.sales.export.pdf');
+    });
+
+    Route::middleware('permission:view-purchase')->group(function() {
+        Route::get('/reports/purchase', [ReportController::class, 'purchaseReport'])->name('reports.purchase');
         Route::get('/reports/purchase/export/excel', [ReportController::class, 'exportPurchaseExcel'])->name('reports.purchase.export.excel');
         Route::get('/reports/purchase/export/pdf', [ReportController::class, 'exportPurchasePdf'])->name('reports.purchase.export.pdf');
     });

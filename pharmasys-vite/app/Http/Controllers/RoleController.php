@@ -92,7 +92,11 @@ class RoleController extends Controller
         try {
             $role->update(['name' => $validated['name']]);
 
+            // Sync permissions dan clear cache
             $role->syncPermissions($validated['permissions'] ?? []);
+            
+            // Clear permissions cache
+            app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
             
             DB::commit();
             return redirect()->route('roles.index')->with('success', 'Role updated successfully.');
