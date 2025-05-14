@@ -3,7 +3,8 @@ import { type BreadcrumbItem, type PaginatedResponse } from '@/types';
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { ActionButton } from '@/components/action-button';
 import { DeleteConfirmationDialog } from '@/components/delete-confirmation-dialog';
-import { Plus, Edit, Trash2, Eye, FileSpreadsheet, PackagePlus } from 'lucide-react'; // Added PackagePlus
+import { RestoreConfirmationDialog } from '@/components/restore-confirmation-dialog';
+import { Plus, Edit, Trash2, Eye, PackagePlus, ArchiveRestore } from 'lucide-react'; // Removed FileSpreadsheet
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Keep for now, might remove if table completely gone
@@ -42,6 +43,7 @@ interface ProdukWithRelations extends Produk {
     earliest_expiry: string | null;
     is_out_of_stock: boolean; // From accessor
     is_low_stock: boolean; // From accessor (will be overridden by frontend logic using prop)
+    is_registered: boolean; // To track if product is registered
 }
 
 interface ProdukIndexProps {
@@ -79,6 +81,13 @@ export default function ProdukIndex() {
         links,
         lowStockThreshold
     } = usePage<ProdukIndexProps>().props;
+    
+    // State for restore confirmation dialog
+    const [restoreDialog, setRestoreDialog] = useState({
+        isOpen: false,
+        productId: 0,
+        productName: '',
+    });
 
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
     const [deleteDialog, setDeleteDialog] = useState({
@@ -134,21 +143,39 @@ export default function ProdukIndex() {
         });
     };
 
+    // Handle restore to warehouse button click
+    const handleRestoreClick = (id: number, name: string) => {
+        setRestoreDialog({
+            isOpen: true,
+            productId: id,
+            productName: name,
+        });
+    };
+
+    // Handle restore confirmation
+    const handleRestoreConfirm = () => {
+        // Use the destroy route with a special parameter to indicate this is a restore action
+        // This will remove the product from the products page
+        router.delete(route('produk.destroy', restoreDialog.productId), {
+            data: {
+                action: 'restore_to_warehouse'
+            },
+            onSuccess: () => {
+                setRestoreDialog({ isOpen: false, productId: 0, productName: '' });
+                // Show success message
+                alert(`${restoreDialog.productName} has been restored to warehouse successfully.`);
+                // Refresh the page to show updated data
+                window.location.reload();
+            }
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={pageTitle || "Products"} />
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <h1 className="text-2xl font-semibold">{pageTitle || 'Products'}</h1>
                 <div className="flex flex-wrap items-center gap-2">
-                    {/* Keep Export button for all roles? Or add permission check? Assuming all can export for now */}
-                    <ActionButton
-                        icon={FileSpreadsheet}
-                        tooltip="Export to Excel"
-                        variant="secondary"
-                        onClick={() => window.location.href = route('produk.export')}
-                    >
-                        Export
-                    </ActionButton>
                     {/* Add Product button - Only for Admin */}
                     {hasRole('admin') && (
                         <ActionButton
@@ -282,6 +309,16 @@ export default function ProdukIndex() {
                                             size="sm"
                                             onClick={() => router.visit(route('produk.show', product.id))}
                                         />
+                                        {/* Restore to Warehouse Button - Only for Admin */}
+                                        {hasRole('admin') && (
+                                            <ActionButton
+                                                icon={ArchiveRestore}
+                                                tooltip="Restore to warehouse"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleRestoreClick(product.id, product.nama)}
+                                            />
+                                        )}
                                         {/* Restock Button - Only for Admin */}
                                         {hasRole('admin') && (
                                             <ActionButton
@@ -336,6 +373,13 @@ export default function ProdukIndex() {
                 onConfirm={handleDeleteConfirm}
                 title="Delete Product"
                 description={`Are you sure you want to delete the product "${deleteDialog.productName}"? Related sales data will remain stored.`}
+            />
+            <RestoreConfirmationDialog
+                isOpen={restoreDialog.isOpen}
+                onClose={() => setRestoreDialog({ isOpen: false, productId: 0, productName: '' })}
+                onConfirm={handleRestoreConfirm}
+                title="Restore to Warehouse"
+                description={`Are you sure you want to restore "${restoreDialog.productName}" to the warehouse? This will change the product's status to unregistered.`}
             />
         </AppLayout>
     );

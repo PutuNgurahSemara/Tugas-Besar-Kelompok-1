@@ -2,7 +2,8 @@ import { Head, Link, router } from '@inertiajs/react'; // Added router
 import AppLayout from '@/layouts/app-layout';
 import { ProductCard, type ProductCardData } from '@/components/product-card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Package, Search as SearchIcon, Filter as FilterIcon, X as ClearIcon } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { PlusCircle, Package, Search as SearchIcon, Filter as FilterIcon, X as ClearIcon, ListPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Added Card components
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Added Select
@@ -39,6 +40,8 @@ export default function Products({ purchaseDetails, filters: initialFilters }: P
     const [searchTerm, setSearchTerm] = useState(initialFilters?.search || '');
     const [selectedSupplier, setSelectedSupplier] = useState(initialFilters?.supplier || 'all');
     const [selectedCategory, setSelectedCategory] = useState(initialFilters?.category || 'all');
+    const [registerAllDialogOpen, setRegisterAllDialogOpen] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
 
     // Debounced search effect (optional, good for performance if API based)
     // For client-side filtering, direct filtering is fine.
@@ -78,6 +81,73 @@ export default function Products({ purchaseDetails, filters: initialFilters }: P
             is_listed_as_product: detail.is_listed_as_product,
         };
     };
+    
+    // Function to handle registering all unregistered products
+    const handleRegisterAllProducts = () => {
+        setIsRegistering(true);
+        
+        // Get all unregistered products
+        const unregisteredProducts = purchaseDetails.filter(detail => !detail.is_listed_as_product);
+        
+        if (unregisteredProducts.length === 0) {
+            alert('Semua produk sudah terdaftar!');
+            setIsRegistering(false);
+            setRegisterAllDialogOpen(false);
+            return;
+        }
+        
+        // Process products one by one
+        let processed = 0;
+        let failed = 0;
+        
+        const processNextProduct = (index: number) => {
+            if (index >= unregisteredProducts.length) {
+                // All products processed
+                setIsRegistering(false);
+                setRegisterAllDialogOpen(false);
+                alert(`${processed} produk berhasil didaftarkan! ${failed} produk gagal didaftarkan.`);
+                window.location.reload();
+                return;
+            }
+            
+            const product = unregisteredProducts[index];
+            
+            // Use the produk.store route which should already exist
+            router.post(route('produk.store'), {
+                // Use more fields from the product to ensure we have all required data
+                nama: product.nama_produk,
+                harga: product.harga_satuan,
+                margin: 0, // Default margin
+                quantity: product.jumlah, // The backend expects 'quantity' not 'stok'
+                category_id: product.kategori_produk ? product.kategori_produk : null,
+                expired_at: product.expired, // Include expiry date
+                purchase_detail_id: product.id,
+                is_from_warehouse: true,
+                supplier: product.supplier
+            }, {
+                preserveScroll: true,
+                onSuccess: (response) => {
+                    console.log('Product registered successfully:', product.nama_produk);
+                    processed++;
+                    // Process next product with a small delay to prevent overwhelming the server
+                    setTimeout(() => {
+                        processNextProduct(index + 1);
+                    }, 500); // 500ms delay between requests
+                },
+                onError: (errors) => {
+                    console.error('Failed to register product:', product.nama_produk, errors);
+                    failed++;
+                    // Continue with next product even if this one failed, with a small delay
+                    setTimeout(() => {
+                        processNextProduct(index + 1);
+                    }, 500); // 500ms delay between requests
+                }
+            });
+        };
+        
+        // Start processing products
+        processNextProduct(0);
+    };
 
     return (
         <AppLayout>
@@ -91,6 +161,13 @@ export default function Products({ purchaseDetails, filters: initialFilters }: P
                             Daftar item yang telah dibeli dan tersedia di gudang. Telusuri atau filter untuk menemukan item.
                         </p>
                     </div>
+                    <Button 
+                        onClick={() => setRegisterAllDialogOpen(true)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                        <ListPlus className="mr-2 h-4 w-4" />
+                        Masukkan Semua Produk
+                    </Button>
                 </div>
 
                 {/* Search and Filter Section */}
@@ -193,6 +270,31 @@ export default function Products({ purchaseDetails, filters: initialFilters }: P
                     </ul>
                 )}
             </div>
+            
+            {/* Register All Products Confirmation Dialog */}
+            <Dialog open={registerAllDialogOpen} onOpenChange={setRegisterAllDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Masukkan Semua Produk</DialogTitle>
+                        <DialogDescription>
+                            Apakah Anda yakin ingin mendaftarkan semua produk yang belum terdaftar ke halaman produk?
+                            Produk akan didaftarkan tanpa gambar dengan data yang tersedia di gudang.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button variant="ghost" onClick={() => setRegisterAllDialogOpen(false)} disabled={isRegistering}>
+                            Batal
+                        </Button>
+                        <Button 
+                            onClick={handleRegisterAllProducts} 
+                            disabled={isRegistering}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                        >
+                            {isRegistering ? 'Memproses...' : 'Ya, Daftarkan Semua'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

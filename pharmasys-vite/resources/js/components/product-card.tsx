@@ -49,9 +49,13 @@ export const ProductCard = ({ product, className }: ProductCardProps) => {
           <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
         </div>
         <div className="flex flex-col items-end space-y-1">
-          {product.is_listed_as_product && (
+          {product.is_listed_as_product ? (
              <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-300 dark:bg-green-700/30 dark:text-green-300 dark:border-green-600">
                 Terdaftar
+             </Badge>
+          ) : (
+             <Badge variant="outline" className="text-xs bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/30 dark:text-gray-300 dark:border-gray-600">
+                Belum Terdaftar
              </Badge>
           )}
           {product.kategori && (
