@@ -13,6 +13,7 @@ import { FlashMessage } from '@/components/flash-message';
 import { Input } from '@/components/ui/input'; // For search bar
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // For perPage and new filters
 import { Badge } from '@/components/ui/badge'; // Added Badge import
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'; // Tooltip components
 import { format, differenceInDays, isPast, addDays } from 'date-fns'; // Import more date-fns functions
 import { useState, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
@@ -300,55 +301,90 @@ export default function ProdukIndex() {
                                     </div>
                                 </CardContent>
                                 <div className="p-4 border-t mt-auto">
-                                    <div className="flex items-center justify-end gap-2">
-                                        {/* View Button - Assuming all roles can view */}
-                                        <ActionButton
-                                            icon={Eye}
-                                            tooltip="View details"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => router.visit(route('produk.show', product.id))}
-                                        />
-                                        {/* Restore to Warehouse Button - Only for Admin */}
-                                        {hasRole('admin') && (
-                                            <ActionButton
-                                                icon={ArchiveRestore}
-                                                tooltip="Restore to warehouse"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleRestoreClick(product.id, product.nama)}
-                                            />
-                                        )}
-                                        {/* Restock Button - Only for Admin */}
-                                        {hasRole('admin') && (
-                                            <ActionButton
-                                                icon={PackagePlus} // Icon for Restock
-                                                tooltip="Restock product"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => router.visit(route('produk.create', { source_product_id: product.id }))}
-                                            />
-                                        )}
-                                        {/* Edit Button - Only for Admin */}
-                                        {hasRole('admin') && (
-                                            <ActionButton
-                                                icon={Edit}
-                                                tooltip="Edit product"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => router.visit(route('produk.edit', product.id))}
-                                            />
-                                        )}
-                                        {/* Delete Button - Only for Admin */}
-                                        {hasRole('admin') && (
-                                            <ActionButton
-                                                icon={Trash2}
-                                                tooltip="Delete product"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleDeleteClick(product.id, product.nama)}
-                                            />
-                                        )}
+                                    <div className="flex justify-end gap-2">
+                                        {/* Action Buttons */}
+                                        <div className="flex items-center gap-2">
+                                            {/* View Button - For All Users */}
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-9 w-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                            onClick={() => router.visit(route('produk.show', product.id))}
+                                                        >
+                                                            <Eye className="h-5 w-5" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Lihat detail produk</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                            
+                                            {/* ADMIN ONLY BUTTONS */}
+                                            {hasRole('admin') && (
+                                                <>
+                                                    {/* Restore Button - untuk semua produk */}
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-9 w-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                                    onClick={() => handleRestoreClick(product.id, product.nama)}
+                                                                >
+                                                                    <ArchiveRestore className="h-5 w-5" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Kembalikan ke gudang</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                    
+                                                    {/* Edit Button */}
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-9 w-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                                    onClick={() => router.visit(route('produk.edit', product.id))}
+                                                                >
+                                                                    <Edit className="h-5 w-5" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Edit produk</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                    
+                                                    {/* Delete Button */}
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-9 w-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                                    onClick={() => handleDeleteClick(product.id, product.nama)}
+                                                                >
+                                                                    <Trash2 className="h-5 w-5" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Hapus produk</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </Card>

@@ -59,14 +59,42 @@ export function AppHeader() {
   const fetchNotifications = useCallback(async () => {
     setIsLoadingNotifications(true);
     try {
-      const response = await fetch('/api/notifications');
+      const response = await fetch('/api/notifications', {
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+      });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
       }
-      const data = await response.json();
-      setNotifications(data);
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.warn('Response is not JSON:', contentType);
+        setNotifications([]);
+        return;
+      }
+      
+      const text = await response.text();
+      try {
+        const data = JSON.parse(text);
+        // Verifikasi struktur data
+        if (Array.isArray(data)) {
+          setNotifications(data);
+        } else {
+          console.warn('Unexpected response format:', data);
+          setNotifications([]);
+        }
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError, 'Response text:', text);
+        setNotifications([]);
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setNotifications([]);
     } finally {
       setIsLoadingNotifications(false);
     }

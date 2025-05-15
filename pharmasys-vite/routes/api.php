@@ -19,8 +19,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Notification Routes
-Route::middleware('auth:sanctum')->group(function () {
+// Notification Routes - menggunakan middleware 'web' untuk autentikasi session
+Route::middleware('web')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/mark-read/{id?}', [NotificationController::class, 'markAsRead']);
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
