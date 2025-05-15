@@ -50,17 +50,14 @@ export function useAuth() {
     // Function to check if the user has a specific role
     const hasRole = (roleName: string): boolean => {
         if (roleName.toLowerCase() === 'admin') {
-            // Saat ini kita hanya cek admin, jadi kembalikan true untuk testing
-            // AKTIFKAN BARIS INI UNTUK TESTING SEBAGAI ADMIN
-            return true;
-
-            // NONAKTIFKAN BARIS INI SELAMA TESTING
-            // return isLikelyAdmin || roles.some(role => 
-            //     typeof role === 'string' && 
-            //     (role.toLowerCase() === 'admin' || role.toLowerCase().includes('admin'))
-            // );
+            // Cek apakah pengguna memiliki peran admin
+            return isLikelyAdmin || roles.some(role => 
+                typeof role === 'string' && 
+                (role.toLowerCase() === 'admin' || role.toLowerCase().includes('admin'))
+            );
         }
-        
+
+        // Untuk role lain, cek apakah ada dalam array roles
         return roles.some(role => 
             typeof role === 'string' && 
             role.toLowerCase() === roleName.toLowerCase()
