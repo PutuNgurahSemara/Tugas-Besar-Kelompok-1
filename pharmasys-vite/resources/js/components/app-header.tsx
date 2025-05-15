@@ -1,5 +1,5 @@
 // resources/js/components/app-header.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { Bell, Settings, LogOut, Search, ReceiptText, XCircle } from 'lucide-react';
 import { useInitials } from '@/hooks/use-initials';
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { type SharedData } from '@/types';
+import { type SharedData, type NotificationType } from '@/types';
 import { cn } from '@/lib/utils';
 import Notification from './ui/notification';
 
@@ -52,11 +52,35 @@ export function AppHeader() {
   const [searchResults, setSearchResults] = useState<SearchMenuItem[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'Stok Obat Rendah', description: 'Paracetamol hampir habis', time: '5 menit lalu', unread: true },
-    { id: 2, title: 'Pesanan Baru', description: 'Pesanan #1234 menunggu konfirmasi', time: '10 menit lalu', unread: true },
-    { id: 3, title: 'Pembayaran Diterima', description: 'Pembayaran untuk Invoice #5678', time: '1 jam lalu', unread: false },
-  ]);
+  const [notifications, setNotifications] = useState<NotificationType[]>([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  
+  // Mengambil notifikasi dari API
+  const fetchNotifications = useCallback(async () => {
+    setIsLoadingNotifications(true);
+    try {
+      const response = await fetch('/api/notifications');
+      if (!response.ok) {
+        throw new Error('Failed to fetch notifications');
+      }
+      const data = await response.json();
+      setNotifications(data);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }, []);
+
+  // Mengambil notifikasi saat komponen dimuat
+  useEffect(() => {
+    fetchNotifications();
+    
+    // Poll for new notifications every 30 seconds
+    const intervalId = setInterval(fetchNotifications, 30000);
+    
+    return () => clearInterval(intervalId);
+  }, [fetchNotifications]);
   
   // Effect untuk mencari menu
   useEffect(() => {
@@ -95,10 +119,63 @@ export function AppHeader() {
 
   const unreadCount = notifications.filter(n => n.unread).length;
   
-  const markAllAsRead = () => {
-    setNotifications(prevState => 
-      prevState.map(notification => ({ ...notification, unread: false }))
-    );
+
+  
+  const markAllAsRead = async () => {
+    try {
+      const response = await fetch('/api/notifications/mark-read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        }
+      });
+      
+      if (response.ok) {
+        // Update local state to mark all as read
+        setNotifications(prevState => 
+          prevState.map(notification => ({ ...notification, unread: false }))
+        );
+      }
+    } catch (error) {
+      console.error('Error marking notifications as read:', error);
+    }
+  };
+  
+  const markAsRead = async (id: number | string) => {
+    try {
+      const response = await fetch(`/api/notifications/mark-read/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        }
+      });
+      
+      if (response.ok) {
+        // Update local state to mark this notification as read
+        setNotifications(prevState => 
+          prevState.map(notification => 
+            notification.id === id 
+              ? { ...notification, unread: false } 
+              : notification
+          )
+        );
+      }
+    } catch (error) {
+      console.error(`Error marking notification ${id} as read:`, error);
+    }
+  };
+  
+  const handleNotificationClick = (notification: NotificationType) => {
+    if (notification.unread) {
+      markAsRead(notification.id);
+    }
+    
+    // If the notification has a link, navigate to it
+    if (notification.link) {
+      router.visit(notification.link);
+    }
   };
   
   // Navigasi ke menu yang dipilih
@@ -243,7 +320,9 @@ export function AppHeader() {
           <Notification 
             notifications={notifications} 
             unreadCount={unreadCount} 
-            markAllAsRead={markAllAsRead} 
+            markAllAsRead={markAllAsRead}
+            onNotificationClick={handleNotificationClick}
+            isLoading={isLoadingNotifications}
           />
 
           {/* Profile Menu - selalu terlihat */}

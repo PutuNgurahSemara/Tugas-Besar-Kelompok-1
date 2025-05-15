@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use App\Models\Produk;
+use App\Models\Purchase;
+use App\Observers\ProdukObserver;
+use App\Observers\PurchaseObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +23,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Mendaftarkan observer
+        Produk::observe(ProdukObserver::class);
+        Purchase::observe(PurchaseObserver::class);
     }
 }

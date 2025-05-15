@@ -1,25 +1,23 @@
 import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { NotificationType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Bell } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
-export type NotificationType = {
-  id: number;
-  title: string;
-  description: string;
-  time: string;
-  unread: boolean;
-};
+// Using the NotificationType imported from @/types
 
 interface NotificationProps {
   notifications: NotificationType[];
   unreadCount: number;
   markAllAsRead: () => void;
+  onNotificationClick?: (notification: NotificationType) => void;
+  isLoading?: boolean;
 }
 
-export default function Notification({ notifications, unreadCount, markAllAsRead }: NotificationProps) {
+export default function Notification({ notifications, unreadCount, markAllAsRead, onNotificationClick, isLoading = false }: NotificationProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -56,7 +54,14 @@ export default function Notification({ notifications, unreadCount, markAllAsRead
           )}
         </div>
         <div className="max-h-96 overflow-y-auto">
-          {notifications.length > 0 ? (
+          {isLoading && (
+            <div className="flex justify-center items-center p-4">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+              <span className="ml-2 text-sm text-gray-500">Memuat notifikasi...</span>
+            </div>
+          )}
+          
+          {!isLoading && notifications.length > 0 ? (
             notifications.map((notification) => (
               <div 
                 key={notification.id}
@@ -64,6 +69,7 @@ export default function Notification({ notifications, unreadCount, markAllAsRead
                   "p-3 border-b border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 cursor-pointer",
                   notification.unread ? "bg-blue-50 dark:bg-blue-900/10" : ""
                 )}
+                onClick={() => onNotificationClick?.(notification)}
               >
                 <div className="flex items-start gap-2">
                   <div className="flex-1 space-y-1">
@@ -78,9 +84,11 @@ export default function Notification({ notifications, unreadCount, markAllAsRead
               </div>
             ))
           ) : (
-            <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-              Tidak ada notifikasi
-            </div>
+            !isLoading && (
+              <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                Tidak ada notifikasi
+              </div>
+            )
           )}
         </div>
         {notifications.length > 0 && (

@@ -47,14 +47,14 @@ export interface SharedData {
 }
 
 export interface NotificationType {
-  id: string;
-  type: 'info' | 'error' | 'warning' | 'success';
+  id: string | number;
+  type?: 'info' | 'error' | 'warning' | 'success';
   title: string;
   description: string;
-  read: boolean;
-  icon?: any;
+  unread: boolean;
   time: string;
-  timeAgo: string;
+  link?: string;
+  data?: any;
 }
 
 export type NotificationItemType = 'info' | 'error' | 'warning' | 'success'; 

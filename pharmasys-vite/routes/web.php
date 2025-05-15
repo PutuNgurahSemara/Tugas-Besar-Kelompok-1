@@ -21,6 +21,7 @@ use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\NotificationViewController;
 
 // Mengarahkan root ke halaman login
 Route::get('/', function () {
@@ -45,6 +46,9 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     // Dashboard (Sudah ada)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Notifications
+    Route::get('/notifications', [NotificationViewController::class, 'index'])->name('notifications.index');
 
     // Profile (Sudah ada)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
