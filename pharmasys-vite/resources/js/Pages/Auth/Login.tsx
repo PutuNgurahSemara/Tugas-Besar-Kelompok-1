@@ -200,22 +200,22 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     {t('email')}
                                 </Label>
                                 <div className="relative">
-                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <div className="absolute inset-y-0 left-0 flex items-center pl-2">
                                         <AtSign className="h-5 w-5 text-gray-400" />
                                     </div>
-                                        <Input
-                                            id="email"
-                                            type="email"
-                                            name="email"
-                                            value={data.email}
-                                            onChange={(e) => setData('email', e.target.value)}
-                                            required
-                                            autoFocus
-                                            autoComplete="username"
-                                            tabIndex={1}
-                                            placeholder="email@example.com"
-                                            className="pl-10 block w-full rounded-md border border-emerald-500/20 bg-black/30 py-2 px-3 text-sm text-white placeholder:text-gray-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500 focus:ring-opacity-50 transition-all duration-200"
-                                        />
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        name="email"
+                                        value={data.email}
+                                        onChange={(e) => setData('email', e.target.value)}
+                                        required
+                                        autoFocus
+                                        autoComplete="username"
+                                        tabIndex={1}
+                                        placeholder="email@example.com"
+                                        className="pl-10 block w-full rounded-md border border-emerald-500/20 bg-black/30 py-2.5 px-4 text-sm text-white placeholder:text-gray-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500 focus:ring-opacity-50 transition-all duration-200 pr-3"
+                                    />
                                 </div>
                                 <InputError message={errors.email} className="mt-1" />
                             </div>
@@ -236,21 +236,21 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     )}
                                 </div>
                                 <div className="relative">
-                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <div className="absolute inset-y-0 left-0 flex items-center pl-2">
                                         <Key className="h-5 w-5 text-gray-400" />
                                     </div>
-                                        <Input
-                                            id="password"
-                                            type="password"
-                                            name="password"
-                                            value={data.password}
-                                            onChange={(e) => setData('password', e.target.value)}
-                                            required
-                                            autoComplete="current-password"
-                                            tabIndex={2}
-                                            placeholder="········"
-                                            className="pl-10 block w-full rounded-md border border-emerald-500/20 bg-black/30 py-2 px-3 text-sm text-white placeholder:text-gray-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500 focus:ring-opacity-50 transition-all duration-200"
-                                        />
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        name="password"
+                                        value={data.password}
+                                        onChange={(e) => setData('password', e.target.value)}
+                                        required
+                                        autoComplete="current-password"
+                                        tabIndex={2}
+                                        placeholder="········"
+                                        className="pl-10 block w-full rounded-md border border-emerald-500/20 bg-black/30 py-2.5 px-4 text-sm text-white placeholder:text-gray-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500 focus:ring-opacity-50 transition-all duration-200 pr-3"
+                                    />
                                 </div>
                                 <InputError message={errors.password} className="mt-1" />
                             </div>

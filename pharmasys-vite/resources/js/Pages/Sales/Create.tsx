@@ -222,9 +222,40 @@ export default function SalesCreate() {
                                         title={product.quantity === 0 ? t('out.of.stock') : `${t('add.to.cart')}: ${product.nama}`}
                                     >
                                         {product.image ? (
-                                            <img src={`/storage/${product.image}`} alt={product.nama} className="h-24 w-full object-cover" />
+                                            <img 
+                                                src={`/storage/produk_images/${product.image}`} 
+                                                alt={product.nama}
+                                                className="h-24 w-full object-cover rounded-lg"
+                                                onError={(e) => {
+                                                    const img = e.target as HTMLImageElement;
+                                                    // Coba beberapa path alternatif
+                                                    const alternativePaths = [
+                                                        `/storage/${product.image}`,
+                                                        `/storage/app/public/${product.image}`,
+                                                        `/storage/app/public/produk_images/${product.image}`,
+                                                        `/images/${product.image}`
+                                                    ];
+                                                    
+                                                    const tryNextPath = (index: number) => {
+                                                        if (index < alternativePaths.length) {
+                                                            img.src = alternativePaths[index];
+                                                            img.onerror = () => tryNextPath(index + 1);
+                                                        } else {
+                                                            img.src = '/images/placeholder-product-custom.svg';
+                                                        }
+                                                    };
+                                                    
+                                                    tryNextPath(0);
+                                                }}
+                                            />
                                         ) : (
-                                            <div className="h-24 w-full bg-muted flex items-center justify-center text-xs text-muted-foreground">{t('no.image')}</div>
+                                            <div className="h-24 w-full rounded-lg bg-muted flex items-center justify-center">
+                                                <img 
+                                                    src="/images/placeholder-product-custom.svg"
+                                                    alt="Placeholder Product"
+                                                    className="w-16 h-16 object-contain"
+                                                />
+                                            </div>
                                         )}
                                         <div className="p-2 text-sm">
                                             <p className="font-medium truncate">{product.nama}</p>

@@ -269,12 +269,41 @@ export default function ProdukIndex() {
                                 className="flex flex-col transition-all duration-300 ease-in-out hover:scale-102 hover:shadow-lg dark:hover:border-slate-700"
                             >
                                 <CardHeader>
-                                    {product.image && (
+                                    {product.image ? (
                                         <img
-                                            src={`/storage/${product.image}`}
+                                            src={`/storage/produk_images/${product.image}`}
                                             alt={product.nama}
                                             className="w-full h-40 object-cover rounded-t-md mb-2"
+                                            onError={(e) => {
+                                                const img = e.target as HTMLImageElement;
+                                                // Coba beberapa path alternatif
+                                                const alternativePaths = [
+                                                    `/storage/${product.image}`,
+                                                    `/storage/app/public/${product.image}`,
+                                                    `/storage/app/public/produk_images/${product.image}`,
+                                                    `/images/${product.image}`
+                                                ];
+                                                
+                                                const tryNextPath = (index: number) => {
+                                                    if (index < alternativePaths.length) {
+                                                        img.src = alternativePaths[index];
+                                                        img.onerror = () => tryNextPath(index + 1);
+                                                    } else {
+                                                        img.src = '/images/placeholder-product-custom.svg';
+                                                    }
+                                                };
+                                                
+                                                tryNextPath(0);
+                                            }}
                                         />
+                                    ) : (
+                                        <div className="w-full h-40 rounded-t-md bg-muted flex items-center justify-center">
+                                            <img 
+                                                src="/images/placeholder-product-custom.svg"
+                                                alt="Placeholder Product"
+                                                className="w-32 h-32 object-contain"
+                                            />
+                                        </div>
                                     )}
                                     <CardTitle className="text-lg truncate">{product.nama}</CardTitle>
                                     <CardDescription>{product.category?.name || 'No category'}</CardDescription>

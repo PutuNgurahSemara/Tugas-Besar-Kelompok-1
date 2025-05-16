@@ -17,6 +17,7 @@ export interface ProductCardData {
   tanggal_kadaluarsa?: string;
   kategori?: string;
   is_listed_as_product?: boolean;
+  image?: string;
 }
 
 interface ProductCardProps {
@@ -45,9 +46,42 @@ export const ProductCard = ({ product, className }: ProductCardProps) => {
   const cardInnerContent = (
     <>
       <CardItem translateZ={20} className="flex items-start justify-between w-full">
-        <div className="w-fit rounded-lg border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-700/50">
-          <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-        </div>
+        {product.image ? (
+          <img 
+            src={`/storage/produk_images/${product.image}`} 
+            alt={product.nama_produk}
+            className="w-16 h-16 object-cover rounded-lg"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              // Coba beberapa path alternatif
+              const alternativePaths = [
+                `/storage/${product.image}`,
+                `/storage/app/public/${product.image}`,
+                `/storage/app/public/produk_images/${product.image}`,
+                `/images/${product.image}`
+              ];
+              
+              const tryNextPath = (index: number) => {
+                if (index < alternativePaths.length) {
+                  img.src = alternativePaths[index];
+                  img.onerror = () => tryNextPath(index + 1);
+                } else {
+                  img.src = '/images/placeholder-product-custom.svg';
+                }
+              };
+              
+              tryNextPath(0);
+            }}
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-lg border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center">
+            <img 
+              src="/images/placeholder-product-custom.svg"
+              alt="Placeholder Product"
+              className="w-12 h-12 object-contain"
+            />
+          </div>
+        )}
         <div className="flex flex-col items-end space-y-1">
           {product.is_listed_as_product ? (
              <Badge variant="default" className="text-xs bg-green-100 text-green-700 border-green-300 dark:bg-green-700/30 dark:text-green-300 dark:border-green-600">
