@@ -6,8 +6,10 @@ use App\Models\Notification;
 use App\Models\Produk;
 use App\Models\Purchase;
 use App\Models\User;
+use App\Models\Setting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class NotificationService
 {
@@ -16,12 +18,19 @@ class NotificationService
      */
     public function createAdminNotification(string $title, string $description, string $type, ?string $link = null, array $data = [])
     {
-        $admins = User::whereHas('roles', function ($query) {
-            $query->where('name', 'Admin');
-        })->get();
+        try {
+            $admins = User::whereHas('roles', function ($query) {
+                $query->where('name', 'Admin');
+            })->get();
 
-        foreach ($admins as $admin) {
-            $this->createNotification($admin->id, $title, $description, $type, $link, $data);
+            foreach ($admins as $admin) {
+                $this->createNotification($admin->id, $title, $description, $type, $link, $data);
+            }
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Error creating admin notification: ' . $e->getMessage());
+            return false;
         }
     }
 
@@ -30,15 +39,20 @@ class NotificationService
      */
     public function createNotification(int $userId, string $title, string $description, string $type, ?string $link = null, array $data = [])
     {
-        return Notification::create([
-            'user_id' => $userId,
-            'title' => $title,
-            'description' => $description,
-            'type' => $type,
-            'link' => $link,
-            'data' => $data,
-            'unread' => true
-        ]);
+        try {
+            return Notification::create([
+                'user_id' => $userId,
+                'title' => $title,
+                'description' => $description,
+                'type' => $type,
+                'link' => $link,
+                'data' => $data,
+                'unread' => true
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error creating notification: ' . $e->getMessage());
+            return null;
+        }
     }
 
     /**
@@ -46,25 +60,36 @@ class NotificationService
      */
     public function checkLowStock()
     {
-        $produk = Produk::where('stok', '<=', DB::raw('stok_minimum'))
-            ->where('stok', '>', 0) // pastikan stok belum nol
-            ->get();
+        try {
+            // Dapatkan threshold dari settings
+            $lowStockThreshold = (int) Setting::getValue('low_stock_threshold', 10);
+            
+            // Gunakan accessor is_low_stock yang sudah ada di model Produk
+            $produk = Produk::where('is_low_stock', true)
+                ->where('available_stock', '>', 0)
+                ->get();
 
-        if ($produk->count() > 0) {
-            foreach ($produk as $item) {
-                $title = 'Stok Produk Menipis';
-                $description = "Stok {$item->nama_produk} tersisa {$item->stok} (minimum: {$item->stok_minimum})";
-                $link = route('produk.edit', $item->id);
-                
-                $this->createAdminNotification($title, $description, 'low_stock', $link, [
-                    'product_id' => $item->id,
-                    'current_stock' => $item->stok,
-                    'min_stock' => $item->stok_minimum
-                ]);
+            Log::info('Checking low stock products. Found: ' . $produk->count());
+
+            if ($produk->count() > 0) {
+                foreach ($produk as $item) {
+                    $title = 'Stok Produk Menipis';
+                    $description = "Stok {$item->nama} tersisa {$item->available_stock} (minimum: {$lowStockThreshold})";
+                    $link = route('produk.edit', $item->id);
+                    
+                    $this->createAdminNotification($title, $description, 'low_stock', $link, [
+                        'product_id' => $item->id,
+                        'current_stock' => $item->available_stock,
+                        'min_stock' => $lowStockThreshold
+                    ]);
+                }
             }
-        }
 
-        return $produk->count();
+            return $produk->count();
+        } catch (\Exception $e) {
+            Log::error('Error checking low stock: ' . $e->getMessage());
+            return 0;
+        }
     }
 
     /**
@@ -72,21 +97,29 @@ class NotificationService
      */
     public function checkOutOfStock()
     {
-        $produk = Produk::where('stok', '=', 0)->get();
+        try {
+            // Gunakan accessor is_out_of_stock yang sudah ada di model Produk
+            $produk = Produk::where('is_out_of_stock', true)->get();
 
-        if ($produk->count() > 0) {
-            foreach ($produk as $item) {
-                $title = 'Stok Produk Habis';
-                $description = "{$item->nama_produk} telah habis stok";
-                $link = route('produk.edit', $item->id);
-                
-                $this->createAdminNotification($title, $description, 'out_of_stock', $link, [
-                    'product_id' => $item->id
-                ]);
+            Log::info('Checking out of stock products. Found: ' . $produk->count());
+
+            if ($produk->count() > 0) {
+                foreach ($produk as $item) {
+                    $title = 'Stok Produk Habis';
+                    $description = "{$item->nama} telah habis stok";
+                    $link = route('produk.edit', $item->id);
+                    
+                    $this->createAdminNotification($title, $description, 'out_of_stock', $link, [
+                        'product_id' => $item->id
+                    ]);
+                }
             }
-        }
 
-        return $produk->count();
+            return $produk->count();
+        } catch (\Exception $e) {
+            Log::error('Error checking out of stock: ' . $e->getMessage());
+            return 0;
+        }
     }
 
     /**
@@ -94,29 +127,38 @@ class NotificationService
      */
     public function checkExpiringSoon()
     {
-        $threshold = Carbon::now()->addDays(30); // Produk yang akan kadaluarsa dalam 30 hari
-        
-        $produk = Produk::where('tanggal_kadaluarsa', '<=', $threshold)
-            ->where('tanggal_kadaluarsa', '>=', Carbon::now())
-            ->where('stok', '>', 0)
-            ->get();
+        try {
+            $threshold = Carbon::now()->addDays(30); // Produk yang akan kadaluarsa dalam 30 hari
+            
+            // Gunakan earliest_expiry accessor dari model Produk
+            $produk = Produk::whereNotNull('earliest_expiry')
+                ->where('earliest_expiry', '<=', $threshold)
+                ->where('earliest_expiry', '>=', Carbon::now())
+                ->where('available_stock', '>', 0)
+                ->get();
 
-        if ($produk->count() > 0) {
-            foreach ($produk as $item) {
-                $daysLeft = Carbon::now()->diffInDays($item->tanggal_kadaluarsa);
-                $title = 'Produk Hampir Kadaluarsa';
-                $description = "{$item->nama_produk} akan kadaluarsa dalam {$daysLeft} hari";
-                $link = route('produk.edit', $item->id);
-                
-                $this->createAdminNotification($title, $description, 'expiring_soon', $link, [
-                    'product_id' => $item->id,
-                    'expiry_date' => $item->tanggal_kadaluarsa,
-                    'days_left' => $daysLeft
-                ]);
+            Log::info('Checking expiring soon products. Found: ' . $produk->count());
+
+            if ($produk->count() > 0) {
+                foreach ($produk as $item) {
+                    $daysLeft = Carbon::now()->diffInDays($item->earliest_expiry);
+                    $title = 'Produk Hampir Kadaluarsa';
+                    $description = "{$item->nama} akan kadaluarsa dalam {$daysLeft} hari";
+                    $link = route('produk.edit', $item->id);
+                    
+                    $this->createAdminNotification($title, $description, 'expiring_soon', $link, [
+                        'product_id' => $item->id,
+                        'expiry_date' => $item->earliest_expiry,
+                        'days_left' => $daysLeft
+                    ]);
+                }
             }
-        }
 
-        return $produk->count();
+            return $produk->count();
+        } catch (\Exception $e) {
+            Log::error('Error checking expiring soon: ' . $e->getMessage());
+            return 0;
+        }
     }
 
     /**
@@ -124,24 +166,32 @@ class NotificationService
      */
     public function checkExpired()
     {
-        $produk = Produk::where('tanggal_kadaluarsa', '<', Carbon::now())
-            ->where('stok', '>', 0)
-            ->get();
+        try {
+            // Gunakan has_expired_items accessor dari model Produk
+            $produk = Produk::where('has_expired_items', true)
+                ->where('available_stock', '>', 0)
+                ->get();
 
-        if ($produk->count() > 0) {
-            foreach ($produk as $item) {
-                $title = 'Produk Kadaluarsa';
-                $description = "{$item->nama_produk} telah kadaluarsa pada {$item->tanggal_kadaluarsa->format('d/m/Y')}";
-                $link = route('produk.edit', $item->id);
-                
-                $this->createAdminNotification($title, $description, 'expired', $link, [
-                    'product_id' => $item->id,
-                    'expiry_date' => $item->tanggal_kadaluarsa
-                ]);
+            Log::info('Checking expired products. Found: ' . $produk->count());
+
+            if ($produk->count() > 0) {
+                foreach ($produk as $item) {
+                    $title = 'Produk Kadaluarsa';
+                    $description = "{$item->nama} telah kadaluarsa pada {$item->earliest_expiry->format('d/m/Y')}";
+                    $link = route('produk.edit', $item->id);
+                    
+                    $this->createAdminNotification($title, $description, 'expired', $link, [
+                        'product_id' => $item->id,
+                        'expiry_date' => $item->earliest_expiry
+                    ]);
+                }
             }
-        }
 
-        return $produk->count();
+            return $produk->count();
+        } catch (\Exception $e) {
+            Log::error('Error checking expired products: ' . $e->getMessage());
+            return 0;
+        }
     }
 
     /**
@@ -149,30 +199,38 @@ class NotificationService
      */
     public function checkPaymentDue()
     {
-        $threshold = Carbon::now()->addDays(7); // Faktur yang jatuh tempo dalam 7 hari
-        
-        $purchases = Purchase::where('payment_status', '!=', 'paid')
-            ->where('payment_due', '<=', $threshold)
-            ->where('payment_due', '>=', Carbon::now())
-            ->get();
+        try {
+            $threshold = Carbon::now()->addDays(7); // Faktur yang jatuh tempo dalam 7 hari
+            
+            $purchases = Purchase::whereNull('tanggal_pembayaran') // Belum dibayar
+                ->whereNotNull('jatuh_tempo')
+                ->where('jatuh_tempo', '<=', $threshold)
+                ->where('jatuh_tempo', '>=', Carbon::now())
+                ->get();
 
-        if ($purchases->count() > 0) {
-            foreach ($purchases as $purchase) {
-                $daysLeft = Carbon::now()->diffInDays($purchase->payment_due);
-                $title = 'Tagihan Mendekati Jatuh Tempo';
-                $description = "Faktur pembelian #{$purchase->invoice_number} akan jatuh tempo dalam {$daysLeft} hari";
-                $link = route('purchases.edit', $purchase->id);
-                
-                $this->createAdminNotification($title, $description, 'payment_due_soon', $link, [
-                    'purchase_id' => $purchase->id,
-                    'invoice_number' => $purchase->invoice_number,
-                    'due_date' => $purchase->payment_due,
-                    'days_left' => $daysLeft
-                ]);
+            Log::info('Checking payment due invoices. Found: ' . $purchases->count());
+
+            if ($purchases->count() > 0) {
+                foreach ($purchases as $purchase) {
+                    $daysLeft = Carbon::now()->diffInDays($purchase->jatuh_tempo);
+                    $title = 'Tagihan Mendekati Jatuh Tempo';
+                    $description = "Faktur pembelian #{$purchase->no_faktur} akan jatuh tempo dalam {$daysLeft} hari";
+                    $link = route('purchases.edit', $purchase->id);
+                    
+                    $this->createAdminNotification($title, $description, 'payment_due_soon', $link, [
+                        'purchase_id' => $purchase->id,
+                        'invoice_number' => $purchase->no_faktur,
+                        'due_date' => $purchase->jatuh_tempo,
+                        'days_left' => $daysLeft
+                    ]);
+                }
             }
-        }
 
-        return $purchases->count();
+            return $purchases->count();
+        } catch (\Exception $e) {
+            Log::error('Error checking payment due: ' . $e->getMessage());
+            return 0;
+        }
     }
 
     /**
@@ -180,27 +238,35 @@ class NotificationService
      */
     public function checkOverduePayment()
     {
-        $purchases = Purchase::where('payment_status', '!=', 'paid')
-            ->where('payment_due', '<', Carbon::now())
-            ->get();
+        try {
+            $purchases = Purchase::whereNull('tanggal_pembayaran') // Belum dibayar
+                ->whereNotNull('jatuh_tempo')
+                ->where('jatuh_tempo', '<', Carbon::now())
+                ->get();
 
-        if ($purchases->count() > 0) {
-            foreach ($purchases as $purchase) {
-                $daysOverdue = Carbon::now()->diffInDays($purchase->payment_due);
-                $title = 'Tagihan Melewati Jatuh Tempo';
-                $description = "Faktur pembelian #{$purchase->invoice_number} telah melewati jatuh tempo sebanyak {$daysOverdue} hari";
-                $link = route('purchases.edit', $purchase->id);
-                
-                $this->createAdminNotification($title, $description, 'payment_overdue', $link, [
-                    'purchase_id' => $purchase->id,
-                    'invoice_number' => $purchase->invoice_number,
-                    'due_date' => $purchase->payment_due,
-                    'days_overdue' => $daysOverdue
-                ]);
+            Log::info('Checking overdue payment invoices. Found: ' . $purchases->count());
+
+            if ($purchases->count() > 0) {
+                foreach ($purchases as $purchase) {
+                    $daysOverdue = Carbon::now()->diffInDays($purchase->jatuh_tempo);
+                    $title = 'Tagihan Melewati Jatuh Tempo';
+                    $description = "Faktur pembelian #{$purchase->no_faktur} telah melewati jatuh tempo sebanyak {$daysOverdue} hari";
+                    $link = route('purchases.edit', $purchase->id);
+                    
+                    $this->createAdminNotification($title, $description, 'payment_overdue', $link, [
+                        'purchase_id' => $purchase->id,
+                        'invoice_number' => $purchase->no_faktur,
+                        'due_date' => $purchase->jatuh_tempo,
+                        'days_overdue' => $daysOverdue
+                    ]);
+                }
             }
-        }
 
-        return $purchases->count();
+            return $purchases->count();
+        } catch (\Exception $e) {
+            Log::error('Error checking overdue payment: ' . $e->getMessage());
+            return 0;
+        }
     }
 
     /**
@@ -208,15 +274,23 @@ class NotificationService
      */
     public function runAllChecks()
     {
-        $stats = [
-            'low_stock' => $this->checkLowStock(),
-            'out_of_stock' => $this->checkOutOfStock(),
-            'expiring_soon' => $this->checkExpiringSoon(),
-            'expired' => $this->checkExpired(),
-            'payment_due_soon' => $this->checkPaymentDue(),
-            'payment_overdue' => $this->checkOverduePayment()
-        ];
-
-        return $stats;
+        try {
+            Log::info('Running all notification checks');
+            
+            $stats = [
+                'low_stock' => $this->checkLowStock(),
+                'out_of_stock' => $this->checkOutOfStock(),
+                'expiring_soon' => $this->checkExpiringSoon(),
+                'expired' => $this->checkExpired(),
+                'payment_due_soon' => $this->checkPaymentDue(),
+                'payment_overdue' => $this->checkOverduePayment()
+            ];
+            
+            Log::info('Notification check results: ' . json_encode($stats));
+            return $stats;
+        } catch (\Exception $e) {
+            Log::error('Error running all checks: ' . $e->getMessage());
+            return [];
+        }
     }
 }
