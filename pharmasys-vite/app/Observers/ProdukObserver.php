@@ -28,30 +28,31 @@ class ProdukObserver
      */
     public function updated(Produk $produk)
     {
-        // Periksa jika stok diperbaharui dan sekarang di bawah batas minimum
-        if ($produk->isDirty('stok') && $produk->stok <= $produk->stok_minimum && $produk->stok > 0) {
+        // Periksa jika stok menipis (menggunakan accessor is_low_stock)
+        if ($produk->is_low_stock && $produk->available_stock > 0) {
+            $lowStockThreshold = (int) \App\Models\Setting::getValue('low_stock_threshold', 10);
             $title = 'Stok Produk Menipis';
-            $description = "Stok {$produk->nama_produk} tersisa {$produk->stok} (minimum: {$produk->stok_minimum})";
+            $description = "Stok {$produk->nama} tersisa {$produk->available_stock} (minimum: {$lowStockThreshold})";
             $link = route('produk.edit', $produk->id);
             
             $this->notificationService->createAdminNotification($title, $description, 'low_stock', $link, [
                 'product_id' => $produk->id,
-                'current_stock' => $produk->stok,
-                'min_stock' => $produk->stok_minimum
+                'current_stock' => $produk->available_stock,
+                'min_stock' => $lowStockThreshold
             ]);
         }
 
-        // Periksa jika stok habis
-        if ($produk->isDirty('stok') && $produk->stok === 0) {
+        // Periksa jika stok habis (menggunakan accessor is_out_of_stock)
+        if ($produk->is_out_of_stock) {
             $title = 'Stok Produk Habis';
-            $description = "{$produk->nama_produk} telah habis stok";
+            $description = "{$produk->nama} telah habis stok";
             $link = route('produk.edit', $produk->id);
             
             $this->notificationService->createAdminNotification($title, $description, 'out_of_stock', $link, [
                 'product_id' => $produk->id
             ]);
         }
-
+        
         // Periksa jika tanggal kadaluarsa diperbarui dan sekarang dalam waktu dekat
         if ($produk->isDirty('tanggal_kadaluarsa')) {
             $threshold = Carbon::now()->addDays(30);
@@ -60,7 +61,7 @@ class ProdukObserver
             if ($produk->tanggal_kadaluarsa <= $threshold && $produk->tanggal_kadaluarsa >= Carbon::now()) {
                 $daysLeft = Carbon::now()->diffInDays($produk->tanggal_kadaluarsa);
                 $title = 'Produk Hampir Kadaluarsa';
-                $description = "{$produk->nama_produk} akan kadaluarsa dalam {$daysLeft} hari";
+                $description = "{$produk->nama} akan kadaluarsa dalam {$daysLeft} hari";
                 $link = route('produk.edit', $produk->id);
                 
                 $this->notificationService->createAdminNotification($title, $description, 'expiring_soon', $link, [
@@ -73,7 +74,7 @@ class ProdukObserver
             // Sudah kadaluarsa
             if ($produk->tanggal_kadaluarsa < Carbon::now()) {
                 $title = 'Produk Kadaluarsa';
-                $description = "{$produk->nama_produk} telah kadaluarsa pada {$produk->tanggal_kadaluarsa->format('d/m/Y')}";
+                $description = "{$produk->nama} telah kadaluarsa pada {$produk->tanggal_kadaluarsa->format('d/m/Y')}";
                 $link = route('produk.edit', $produk->id);
                 
                 $this->notificationService->createAdminNotification($title, $description, 'expired', $link, [

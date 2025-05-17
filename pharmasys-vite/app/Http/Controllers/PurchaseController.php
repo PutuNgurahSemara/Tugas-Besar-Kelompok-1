@@ -130,16 +130,41 @@ class PurchaseController extends Controller
             $purchase = Purchase::create($purchaseData);
 
             foreach ($validated['details'] as $detailItem) {
+                // Cari atau buat kategori berdasarkan kemasan
+                $category = Category::firstOrCreate(
+                    ['name' => $detailItem['kemasan']],
+                    ['slug' => Str::slug($detailItem['kemasan'])]
+                );
+
+                // Cari produk berdasarkan nama dan kategori
+                $produk = Produk::firstOrNew([
+                    'nama' => $detailItem['nama_produk'],
+                    'category_id' => $category->id
+                ]);
+
+                // Jika produk baru, set harga default dari pengaturan
+                if (!$produk->exists) {
+                    // Dapatkan margin default dari pengaturan
+                    $defaultMargin = (float) Setting::getValue('default_margin', 10); // Default 10% jika tidak ada pengaturan
+                    $marginMultiplier = 1 + ($defaultMargin / 100);
+                    
+                    $produk->harga = $detailItem['harga_satuan'] * $marginMultiplier;
+                    $produk->margin = $defaultMargin;
+                    $produk->save();
+                }
+
+                // Simpan detail pembelian
                 $purchase->details()->create([
                     'nama_produk' => $detailItem['nama_produk'],
                     'expired' => $detailItem['expired'],
                     'jumlah' => $detailItem['jumlah'],
                     'kemasan' => $detailItem['kemasan'],
                     'harga_satuan' => $detailItem['harga_satuan'],
-                    'gross_amount' => $detailItem['gross'], // Map 'gross' from frontend to 'gross_amount'
+                    'gross_amount' => $detailItem['gross'],
                     'discount_percentage' => $detailItem['discount_percentage'] ?? 0,
-                    'total' => $detailItem['total'], // This is item's sub_total
-                    // 'produk_id' can be handled here if linking to existing Produk model
+                    'total' => $detailItem['total'],
+                    'produk_id' => $produk->id,
+                    'category_id' => $category->id
                 ]);
             }
 
@@ -274,21 +299,31 @@ class PurchaseController extends Controller
 
     public function destroy(Purchase $purchase)
     {
-        // Check if any purchase details are associated with products
-        $usedDetails = $purchase->details()->whereNotNull('produk_id')->count();
-        
-        if ($usedDetails > 0) {
+        try {
+            // Mulai transaction database
+            \DB::beginTransaction();
+
+            // Hapus semua detail pembelian
+            $purchase->details()->delete();
+            
+            // Hapus pembelian
+            $purchase->delete();
+            
+            // Commit transaction
+            \DB::commit();
+            
+            return redirect()->route('purchases.index')
+                ->with('success', 'Pembelian berhasil dihapus.');
+                
+        } catch (\Exception $e) {
+            // Rollback transaction jika terjadi error
+            \DB::rollBack();
+            \Log::error('Error deleting purchase: ' . $e->getMessage());
+            
             return back()->withErrors([
-                'delete' => 'Tidak dapat menghapus pembelian ini karena sudah digunakan untuk produk. Hapus produk terkait terlebih dahulu.'
+                'delete' => 'Terjadi kesalahan saat menghapus pembelian: ' . $e->getMessage()
             ]);
         }
-        
-        // Delete purchase details first
-        $purchase->details()->delete();
-        
-        // Then delete the purchase
-        $purchase->delete();
-        return redirect()->route('purchases.index')->with('success', 'Pembelian berhasil dihapus.');
     }
 
     public function importPage()
@@ -1454,41 +1489,58 @@ class PurchaseController extends Controller
 
     public function purchasedProducts()
     {
-        $existingProdukNames = Produk::pluck('nama')->unique()->toArray();
+        // Get all products with their categories
+        $existingProducts = Produk::with('category')->get();
+        $existingProdukMap = $existingProducts->keyBy('id'); // Ubah key menjadi ID
 
         // Get all purchase details with product information
-        $purchaseDetails = PurchaseDetail::with(['purchase.supplier'])
+        $purchaseDetails = PurchaseDetail::with(['purchase.supplier', 'produk.category'])
             ->select([
                 'id',
                 'purchase_id',
-                'produk_id', // Include produk_id to know if this batch is directly linked
+                'produk_id',
                 'nama_produk',
                 'expired',
                 'jumlah',
                 'kemasan',
                 'harga_satuan',
-                'total'
+                'total',
+                'created_at',
             ])
-        ->orderBy('expired')
-        ->get()
-        ->map(function ($detail) use ($existingProdukNames) { // Added: use ($existingProdukNames)
-            return [
-                'id' => $detail->id,
+            ->get()
+            ->map(function ($detail) use ($existingProdukMap) {
+                // Default values
+                $isListed = false;
+                $kategoriProduk = null;
+                $produkId = null;
+
+                // Check if this purchase detail is linked to a product
+                if ($detail->produk_id && isset($existingProdukMap[$detail->produk_id])) {
+                    $produk = $existingProdukMap[$detail->produk_id];
+                    $isListed = true;
+                    $kategoriProduk = $produk->category->name ?? null;
+                    $produkId = $produk->id;
+                }
+
+                return [
+                    'id' => $detail->id,
                     'nama_produk' => $detail->nama_produk,
-                    'supplier' => $detail->purchase->supplier->company ?? 'Unknown',
-                    'expired' => $detail->expired ? $detail->expired->format('Y-m-d') : null,
+                    'supplier' => $detail->purchase->pbf ?? 'Unknown',
+                    'expired' => $detail->expired,
                     'jumlah' => $detail->jumlah,
                     'kemasan' => $detail->kemasan,
                     'harga_satuan' => $detail->harga_satuan,
                     'total' => $detail->total,
-                'purchase_no' => $detail->purchase->no_faktur ?? 'Unknown',
-                'purchase_date' => $detail->purchase->created_at->format('Y-m-d'),
-                'is_listed_as_product' => in_array($detail->nama_produk, $existingProdukNames),
-                'is_directly_linked_to_product' => !is_null($detail->produk_id),
-            ];
-        });
+                    'kategori_produk' => $kategoriProduk,
+                    'purchase_no' => $detail->purchase->no_faktur ?? 'Unknown',
+                    'purchase_date' => $detail->purchase->created_at->format('Y-m-d'),
+                    'is_listed_as_product' => $isListed,
+                    'is_directly_linked_to_product' => !is_null($detail->produk_id),
+                    'produk_id_terkait' => $produkId,
+                ];
+            });
 
-        return Inertia::render('Purchases/Products', [ // Assuming view is Purchases/Products.tsx
+        return Inertia::render('Purchases/Products', [
             'purchaseDetails' => $purchaseDetails
         ]);
     }

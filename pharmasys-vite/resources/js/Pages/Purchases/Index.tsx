@@ -75,7 +75,10 @@ export default function PurchasesIndex() {
         if (!confirm('Yakin ingin menghapus faktur ini?')) return;
         router.delete(route('purchases.destroy', id), {
             onSuccess: () => setImportAlert({ type: 'success', message: 'Faktur berhasil dihapus!' }),
-            onError: () => setImportAlert({ type: 'error', message: 'Gagal menghapus faktur.' }),
+            onError: (errors) => {
+                const errorMessage = errors?.delete || 'Gagal menghapus faktur.';
+                setImportAlert({ type: 'error', message: errorMessage });
+            },
         });
     };
 

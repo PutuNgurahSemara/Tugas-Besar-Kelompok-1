@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react'; // Added router
+import axios from 'axios';
 import AppLayout from '@/layouts/app-layout';
 import { ProductCard, type ProductCardData } from '@/components/product-card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,13 @@ export default function Products({ purchaseDetails, filters: initialFilters }: P
     const [selectedCategory, setSelectedCategory] = useState(initialFilters?.category || 'all');
     const [registerAllDialogOpen, setRegisterAllDialogOpen] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false);
+    const [defaultMargin, setDefaultMargin] = useState(20); // Default value as fallback
+    
+    // Use default margin from props or fallback to 20%
+    useEffect(() => {
+        console.log('Using default margin: 20%');
+        setDefaultMargin(20); // Default margin 20%
+    }, []);
 
     // Debounced search effect (optional, good for performance if API based)
     // For client-side filtering, direct filtering is fine.
@@ -117,7 +125,7 @@ export default function Products({ purchaseDetails, filters: initialFilters }: P
                 // Use more fields from the product to ensure we have all required data
                 nama: product.nama_produk,
                 harga: product.harga_satuan,
-                margin: 0, // Default margin
+                margin: defaultMargin, // Use default margin from settings
                 quantity: product.jumlah, // The backend expects 'quantity' not 'stok'
                 category_id: product.kategori_produk ? product.kategori_produk : null,
                 expired_at: product.expired, // Include expiry date

@@ -24,9 +24,7 @@ export default function AuthSimpleLayout({ children }: PropsWithChildren<AuthLay
 
                 <div className="w-full p-8 md:w-1/2 md:p-12">
                     <div className="mb-8 flex flex-col items-center">
-                        <Link href="/" className="mb-4 md:hidden">
-                            <img src="/assets/images/logo.png" alt="PharmaSys Logo" className="h-10 w-10 object-contain" />
-                        </Link>
+    
                         <h2 className="text-center text-2xl font-bold text-gray-800 dark:text-white">Selamat Datang Kembali</h2>
                         <p className="mt-1 text-center text-sm text-gray-600 dark:text-gray-400">Masuk ke akun Anda untuk melanjutkan</p>
                     </div>
