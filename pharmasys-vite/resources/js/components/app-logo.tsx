@@ -51,17 +51,21 @@ export default function AppLogo({
     <div className={cn("flex items-center transition-all duration-300", className)}>
       <div 
         className={cn(
-          "logo-icon bg-gradient-to-br from-green-500 to-green-700 text-white flex aspect-square items-center justify-center rounded-md shadow-md transform transition-transform hover:scale-105", 
+          "logo-icon flex aspect-square items-center justify-center rounded-md shadow-md transform transition-transform hover:scale-105", 
           sizeClasses[size]
         )}
       >
-        <span className="font-bold text-xs">PMS</span>
+        <img 
+          src="/assets/images/logo.png" 
+          alt="PharmaSys Logo" 
+          className="h-full w-full object-contain"
+        />
       </div>
       
       {showText && !isCollapsed && (
         <div className="overflow-hidden transition-all duration-300 ml-2">
           <h1 className={cn(
-            "font-semibold leading-tight bg-clip-text text-transparent bg-gradient-to-r from-green-500 to-emerald-600 transition-opacity duration-300",
+            "font-semibold leading-tight transition-opacity duration-300",
             textSizeClasses[size]
           )}>
             PharmaSys

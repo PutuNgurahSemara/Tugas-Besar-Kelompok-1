@@ -17,7 +17,7 @@ export default function AuthSimpleLayout({ children }: PropsWithChildren<AuthLay
 
             <div className="flex w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-2xl dark:bg-gray-800">
                 <div className="hidden w-1/2 flex-col items-center justify-center bg-gradient-to-br from-emerald-500 to-green-600 p-12 text-white dark:from-emerald-600 dark:to-green-700 md:flex">
-                    <Pill className="h-24 w-24 text-white/80" strokeWidth={1.5} />
+                    <img src="/assets/images/logo.png" alt="PharmaSys Logo" className="h-24 w-24 object-contain" />
                     <h1 className="mt-6 text-center text-3xl font-bold">PharmaSys</h1>
                     <p className="mt-2 text-center text-emerald-100">Solusi Lengkap Manajemen Apotek</p>
                 </div>
@@ -25,7 +25,7 @@ export default function AuthSimpleLayout({ children }: PropsWithChildren<AuthLay
                 <div className="w-full p-8 md:w-1/2 md:p-12">
                     <div className="mb-8 flex flex-col items-center">
                         <Link href="/" className="mb-4 md:hidden">
-                            <Pill className="h-10 w-10 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+                            <img src="/assets/images/logo.png" alt="PharmaSys Logo" className="h-10 w-10 object-contain" />
                         </Link>
                         <h2 className="text-center text-2xl font-bold text-gray-800 dark:text-white">Selamat Datang Kembali</h2>
                         <p className="mt-1 text-center text-sm text-gray-600 dark:text-gray-400">Masuk ke akun Anda untuk melanjutkan</p>

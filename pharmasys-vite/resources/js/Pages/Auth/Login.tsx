@@ -173,8 +173,8 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5, delay: 0.2 }}
                     >
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500/20 to-green-500/20 flex items-center justify-center backdrop-blur-md border border-emerald-500/20 shadow-lg">
-                            <Pill size={36} className="text-emerald-300" />
+                        <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center border border-gray-200 shadow-lg">
+                            <img src="/assets/images/logo.png" alt="PharmaSys Logo" className="h-20 w-20 object-contain" />
                         </div>
                     </motion.div>
                     <motion.div
@@ -200,22 +200,22 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     {t('email')}
                                 </Label>
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 flex items-center pl-2">
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                         <AtSign className="h-5 w-5 text-gray-400" />
                                     </div>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        name="email"
-                                        value={data.email}
-                                        onChange={(e) => setData('email', e.target.value)}
-                                        required
-                                        autoFocus
-                                        autoComplete="username"
-                                        tabIndex={1}
-                                        placeholder="email@example.com"
-                                        className="pl-10 block w-full rounded-md border border-emerald-500/20 bg-black/30 py-2.5 px-4 text-sm text-white placeholder:text-gray-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500 focus:ring-opacity-50 transition-all duration-200 pr-3"
-                                    />
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            name="email"
+                                            value={data.email}
+                                            onChange={(e) => setData('email', e.target.value)}
+                                            required
+                                            autoFocus
+                                            autoComplete="username"
+                                            tabIndex={1}
+                                            placeholder="email@example.com"
+                                            className="pl-10 block w-full rounded-md border border-emerald-500/20 bg-black/30 py-2 px-3 text-sm text-white placeholder:text-gray-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500 focus:ring-opacity-50 transition-all duration-200"
+                                        />
                                 </div>
                                 <InputError message={errors.email} className="mt-1" />
                             </div>
@@ -236,21 +236,21 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                                     )}
                                 </div>
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 flex items-center pl-2">
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                         <Key className="h-5 w-5 text-gray-400" />
                                     </div>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        name="password"
-                                        value={data.password}
-                                        onChange={(e) => setData('password', e.target.value)}
-                                        required
-                                        autoComplete="current-password"
-                                        tabIndex={2}
-                                        placeholder="········"
-                                        className="pl-10 block w-full rounded-md border border-emerald-500/20 bg-black/30 py-2.5 px-4 text-sm text-white placeholder:text-gray-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500 focus:ring-opacity-50 transition-all duration-200 pr-3"
-                                    />
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            name="password"
+                                            value={data.password}
+                                            onChange={(e) => setData('password', e.target.value)}
+                                            required
+                                            autoComplete="current-password"
+                                            tabIndex={2}
+                                            placeholder="········"
+                                            className="pl-10 block w-full rounded-md border border-emerald-500/20 bg-black/30 py-2 px-3 text-sm text-white placeholder:text-gray-400 focus:border-emerald-500 focus:ring focus:ring-emerald-500 focus:ring-opacity-50 transition-all duration-200"
+                                        />
                                 </div>
                                 <InputError message={errors.password} className="mt-1" />
                             </div>
@@ -307,8 +307,8 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                     {/* Features side */}
                     <div className="p-8 relative bg-gradient-to-br from-emerald-950/50 to-black/50 w-full md:w-1/2 flex flex-col">
                         <div className="flex items-center gap-3 mb-6 relative z-20">
-                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500/30 to-green-500/30 flex items-center justify-center backdrop-blur-md border border-emerald-500/30 shadow-lg">
-                                <Pill size={28} className="text-emerald-300" />
+                            <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center border border-gray-200 shadow-lg">
+                                <img src="/assets/images/logo.png" alt="PharmaSys Logo" className="h-7 w-7 object-contain" />
                             </div>
                             <div>
                                 <h3 className="text-2xl font-bold text-white bg-gradient-to-b from-white to-emerald-200 bg-clip-text text-transparent">
