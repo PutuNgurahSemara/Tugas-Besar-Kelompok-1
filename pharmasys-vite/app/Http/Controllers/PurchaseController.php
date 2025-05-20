@@ -76,22 +76,23 @@ class PurchaseController extends Controller
     {
         $validated = $request->validate([
             'no_faktur' => 'required|string',
+            'supplier_id' => 'required|exists:suppliers,id', // Validasi supplier_id harus ada di tabel suppliers
             'pbf' => 'required|string',
             'tanggal_faktur' => 'required|date',
             'jatuh_tempo' => 'required|date',
             'jumlah' => 'required|integer',
             'tanggal_pembayaran' => 'nullable|date',
             'keterangan' => 'nullable|string',
-            'ppn_percentage' => 'nullable|numeric|min:0|max:100', // Added PPN percentage validation
+            'ppn_percentage' => 'nullable|numeric|min:0|max:100',
             'details' => 'required|array|min:1',
             'details.*.nama_produk' => 'required|string',
             'details.*.expired' => 'required|date',
             'details.*.jumlah' => 'required|integer|min:0',
             'details.*.kemasan' => 'required|string',
             'details.*.harga_satuan' => 'required|numeric|min:0',
-            'details.*.gross' => 'required|numeric|min:0', // Frontend sends 'gross'
+            'details.*.gross' => 'required|numeric|min:0',
             'details.*.discount_percentage' => 'nullable|numeric|min:0|max:100',
-            'details.*.total' => 'required|numeric|min:0', // This 'total' is item's sub_total
+            'details.*.total' => 'required|numeric|min:0',
         ]);
 
         // Calculate subtotal from details (sum of item's sub_totals)
@@ -102,18 +103,16 @@ class PurchaseController extends Controller
         $ppnAmount = ($subtotal * $ppnPercentage) / 100;
         $grandTotal = $subtotal + $ppnAmount;
 
-        // Find supplier_id based on pbf
-        $supplier = Supplier::where('company', $validated['pbf'])->first();
+        // Dapatkan data supplier berdasarkan ID yang dikirim
+        $supplier = Supplier::find($validated['supplier_id']);
 
         if (!$supplier) {
-            // Handle case where supplier is not found
-            // For now, let's assume it should exist and throw an error or redirect back with error
-            return redirect()->back()->withInput()->withErrors(['pbf' => 'Supplier tidak ditemukan.']);
+            return redirect()->back()->withInput()->withErrors(['supplier_id' => 'Supplier tidak ditemukan.']);
         }
 
         $purchaseData = [
             'no_faktur' => $validated['no_faktur'],
-            'pbf' => $validated['pbf'],
+            'pbf' => $supplier->company, // Gunakan nama perusahaan dari data supplier
             'supplier_id' => $supplier->id,
             'tanggal_faktur' => $validated['tanggal_faktur'],
             'jatuh_tempo' => $validated['jatuh_tempo'],

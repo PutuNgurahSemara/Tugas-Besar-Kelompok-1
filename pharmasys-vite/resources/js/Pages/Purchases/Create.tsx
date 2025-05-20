@@ -263,12 +263,25 @@ export default function PurchaseCreate() {
         // Data header
         formData.append('no_faktur', header.no_faktur);
         formData.append('supplier_id', header.supplier_id);
-        formData.append('pbf', header.supplier_id); // Tambahkan field pbf yang diperlukan
+        
+        // Dapatkan data supplier yang dipilih
+        const selectedSupplier = suppliers.find(s => String(s.id) === header.supplier_id);
+        if (!selectedSupplier) {
+            setAlert({
+                type: 'error',
+                message: 'Supplier tidak valid. Silakan pilih supplier yang benar.'
+            });
+            setProcessing(false);
+            return;
+        }
+        
+        // Gunakan nama perusahaan supplier yang sesuai dengan ID-nya
+        formData.append('pbf', selectedSupplier.company);
         formData.append('tanggal_faktur', header.tanggal_faktur);
-        formData.append('tanggal_invoice', header.tanggal_faktur); // Tambahkan tanggal_invoice
+        formData.append('tanggal_invoice', header.tanggal_faktur);
         formData.append('jatuh_tempo', header.jatuh_tempo);
         formData.append('status', status);
-        formData.append('keterangan', header.keterangan || ''); // Tambahkan field keterangan
+        formData.append('keterangan', header.keterangan || '');
         formData.append('ppn_percentage', ppnPercentage);
         
         // Hitung total jumlah produk
