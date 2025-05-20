@@ -9,14 +9,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import InputError from '@/components/InputError';
 import { Progress } from "@/components/ui/progress";
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Plus } from "lucide-react";
+
+interface Product {
+    id: number;
+    name: string;
+    // tambahkan field lain yang diperlukan
+}
 
 interface PurchaseCreateProps extends PageProps {
     categories: Category[];
     suppliers: Supplier[];
+    products: Product[];
     [key: string]: unknown;
 }
 
@@ -39,7 +46,32 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function PurchaseCreate() {
-    const { categories, suppliers, errors: pageErrors } = usePage<PurchaseCreateProps>().props;
+    const { categories, suppliers, products: initialProducts = [], errors: pageErrors } = usePage<PurchaseCreateProps>().props;
+    
+    // Gunakan useRef untuk menyimpan daftar produk yang sudah diinput
+    const availableProductsRef = useRef<{id: number, name: string}[]>(initialProducts);
+    const [availableProducts, setAvailableProducts] = useState<{id: number, name: string}[]>(
+        () => {
+            try {
+                // Coba ambil dari localStorage jika ada, jika tidak gunakan initialProducts
+                const savedProducts = localStorage.getItem('availableProducts');
+                return savedProducts ? JSON.parse(savedProducts) : initialProducts;
+            } catch (error) {
+                console.error('Error loading products from localStorage:', error);
+                return initialProducts;
+            }
+        }
+    );
+
+    // Update ref dan localStorage saat availableProducts berubah
+    useEffect(() => {
+        availableProductsRef.current = availableProducts;
+        try {
+            localStorage.setItem('availableProducts', JSON.stringify(availableProducts));
+        } catch (error) {
+            console.error('Error saving products to localStorage:', error);
+        }
+    }, [availableProducts]);
     
     // Daftar kemasan yang sudah ada
     const existingKemasan: string[] = useMemo(() => {
@@ -98,11 +130,48 @@ export default function PurchaseCreate() {
     const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setHeader({ ...header, [e.target.name]: e.target.value });
     };
+    // Handler    // Menambahkan produk baru ke daftar yang tersedia
+    const handleAddNewProduct = (index: number, productName: string) => {
+        if (!productName.trim()) return;
+        
+        // Cek apakah produk sudah ada
+        const productExists = availableProducts.some(p => 
+            p.name.toLowerCase() === productName.toLowerCase()
+        );
+        
+        if (!productExists) {
+            const newProduct = {
+                id: Date.now(), // ID sementara
+                name: productName.trim()
+            };
+            
+            const updatedProducts = [...availableProducts, newProduct];
+            setAvailableProducts(updatedProducts);
+            
+            // Update input field dengan nama produk yang baru ditambahkan
+            const newDetails = [...details];
+            newDetails[index] = {
+                ...newDetails[index],
+                nama_produk: productName.trim()
+            };
+            setDetails(newDetails);
+        }
+    };
     // Handler perubahan detail produk
     const handleDetailChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
         const newDetails = [...details];
         const field = e.target.name as keyof DetailItem;
-        newDetails[index][field] = e.target.value;
+        const value = e.target.value;
+        
+        newDetails[index][field] = value;
+
+        // Jika field yang berubah adalah nama_produk dan ada tombol enter
+        if (field === 'nama_produk' && e.nativeEvent instanceof KeyboardEvent && e.nativeEvent.key === 'Enter') {
+            e.preventDefault();
+            if (value && !availableProducts.some(p => p.name === value)) {
+                handleAddNewProduct(index, value);
+            }
+        }
 
         const qty = parseFloat(newDetails[index].jumlah) || 0;
         const unitPrice = parseFloat(newDetails[index].harga_satuan) || 0;
@@ -150,51 +219,168 @@ export default function PurchaseCreate() {
     // State untuk alert
     const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     // Submit form
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setProcessing(true);
-        setAlert(null);
-        const formData = {
-            no_faktur: header.no_faktur,
-            pbf: header.pbf,
-            tanggal_faktur: header.tanggal_faktur,
-            jatuh_tempo: header.jatuh_tempo,
-            keterangan: header.keterangan,
-            supplier_id: header.supplier_id,
-            jumlah: details.length,
-            tanggal_pembayaran: tanggalPembayaran || null,
-            ppn_percentage: parseFloat(ppnPercentage) || 0,
-            details: details.map(detail => ({
-                nama_produk: detail.nama_produk,
+        
+        // Validasi form
+        const validationErrors: Record<string, string> = {};
+        
+        if (!header.no_faktur) validationErrors.no_faktur = 'No Faktur harus diisi';
+        if (!header.supplier_id) validationErrors.supplier_id = 'PBF harus dipilih';
+        if (!header.tanggal_faktur) validationErrors.tanggal_faktur = 'Tanggal Faktur harus diisi';
+        if (!header.jatuh_tempo) validationErrors.jatuh_tempo = 'Jatuh Tempo harus diisi';
+        
+        // Validasi detail produk
+        details.forEach((detail, index) => {
+            if (!detail.nama_produk) {
+                validationErrors[`details.${index}.nama_produk`] = 'Nama produk harus diisi';
+            }
+            if (!detail.expired) {
+                validationErrors[`details.${index}.expired`] = 'Tanggal kadaluarsa harus diisi';
+            }
+            if (!detail.jumlah || parseFloat(detail.jumlah) <= 0) {
+                validationErrors[`details.${index}.jumlah`] = 'Jumlah harus lebih dari 0';
+            }
+            if (!detail.harga_satuan || parseFloat(detail.harga_satuan) <= 0) {
+                validationErrors[`details.${index}.harga_satuan`] = 'Harga satuan harus lebih dari 0';
+            }
+        });
+        
+        if (Object.keys(validationErrors).length > 0) {
+            setAlert({
+                type: 'error',
+                message: 'Terdapat kesalahan pada form:\n' + 
+                    Object.entries(validationErrors).map(([field, msg]) => `- ${msg}`).join('\n')
+            });
+            setProcessing(false);
+            return;
+        }
+        
+        // Siapkan data untuk dikirim
+        const formData = new FormData();
+        
+        // Data header
+        formData.append('no_faktur', header.no_faktur);
+        formData.append('supplier_id', header.supplier_id);
+        formData.append('pbf', header.supplier_id); // Tambahkan field pbf yang diperlukan
+        formData.append('tanggal_faktur', header.tanggal_faktur);
+        formData.append('tanggal_invoice', header.tanggal_faktur); // Tambahkan tanggal_invoice
+        formData.append('jatuh_tempo', header.jatuh_tempo);
+        formData.append('status', status);
+        formData.append('keterangan', header.keterangan || ''); // Tambahkan field keterangan
+        formData.append('ppn_percentage', ppnPercentage);
+        
+        // Hitung total jumlah produk
+        const totalJumlah = details.reduce((sum, detail) => {
+            return sum + (parseFloat(detail.jumlah) || 0);
+        }, 0);
+        formData.append('jumlah', String(totalJumlah));
+        
+        // Hitung total pembelian
+        const totalPembelian = details.reduce((sum, detail) => {
+            return sum + (parseFloat(detail.sub_total) || 0);
+        }, 0);
+        formData.append('total', String(totalPembelian));
+        
+        if (status === 'PAID' && tanggalPembayaran) {
+            formData.append('tanggal_pembayaran', tanggalPembayaran);
+        }
+        
+        // Tambahkan detail produk
+        details.forEach((detail, index) => {
+            const jumlah = parseFloat(detail.jumlah) || 0;
+            const hargaSatuan = parseFloat(detail.harga_satuan) || 0;
+            const diskon = parseFloat(detail.discount_percentage) || 0;
+            const gross = jumlah * hargaSatuan;
+            const subTotal = gross - (gross * diskon / 100);
+            
+            const detailData = {
+                product_id: '', // Ini akan diisi oleh backend
+                product_name: detail.nama_produk,
+                nama_produk: detail.nama_produk, // Tambahkan field nama_produk
                 expired: detail.expired,
-                jumlah: parseInt(detail.jumlah) || 0,
-                kemasan: detail.kemasan,
-                harga_satuan: parseFloat(detail.harga_satuan) || 0,
-                gross: parseFloat(detail.gross) || 0,
-                discount_percentage: parseFloat(detail.discount_percentage) || 0,
-                total: parseFloat(detail.sub_total) || 0, // 'total' in backend is item's sub_total
-            })),
-        };
+                jumlah: jumlah,
+                kemasan: detail.kemasan || '',
+                harga_satuan: hargaSatuan,
+                diskon: diskon,
+                sub_total: subTotal,
+                expired_date: detail.expired,
+                gross: gross,
+                total: subTotal
+            };
+            
+            // Tambahkan semua field ke formData
+            Object.entries(detailData).forEach(([key, value]) => {
+                formData.append(`details[${index}][${key}]`, String(value));
+            });
+        });
 
-        router.post(route('purchases.store'), formData as any, {
+        // Kirim data ke server
+        router.post(route('purchases.store'), formData, {
             onSuccess: () => {
-                setAlert({ type: 'success', message: 'Pembelian berhasil disimpan!' });
-                setProcessing(false);
-                // Optionally reset form:
-                // setHeader({ no_faktur: '', pbf: '', tanggal_faktur: '', jatuh_tempo: '', keterangan: '', supplier_id: '' });
-                // setDetails([{ nama_produk: '', expired: '', jumlah: '', kemasan: '', harga_satuan: '', total: '' }]);
-                // setTanggalPembayaran('');
+                // Simpan daftar produk yang sudah ada
+                const existingProducts = [...availableProducts];
+                
+                // Reset form setelah berhasil disimpan
+                setHeader({
+                    no_faktur: '',
+                    pbf: '',
+                    tanggal_faktur: '',
+                    jatuh_tempo: '',
+                    tanggal_pembayaran: '',
+                    keterangan: '',
+                    supplier_id: ''
+                });
+                setDetails([{
+                    nama_produk: '',
+                    expired: '',
+                    jumlah: '1',
+                    kemasan: '',
+                    harga_satuan: '0',
+                    gross: '0.00',
+                    discount_percentage: '0',
+                    sub_total: '0.00'
+                }]);
+                setPpnPercentage('0');
+                
+                // Kembalikan daftar produk yang sudah ada
+                setAvailableProducts(existingProducts);
+                
+                // Tampilkan pesan sukses
+                setAlert({
+                    type: 'success',
+                    message: 'Pembelian berhasil disimpan!'
+                });
             },
-            onError: (errors) => { // Capture errors from Inertia props
-                if (errors.general) {
-                    setAlert({ type: 'error', message: errors.general });
+            onError: (errors) => {
+                console.error('Error menyimpan pembelian:', errors);
+                
+                // Cek error validasi
+                if (errors && typeof errors === 'object') {
+                    const errorMessages = Object.entries(errors)
+                        .map(([field, message]) => `${field}: ${message}`)
+                        .join('\n');
+                    
+                    setAlert({
+                        type: 'error',
+                        message: `Gagal menyimpan pembelian.\n\n${errorMessages}`
+                    });
+                } else if (errors && typeof errors === 'string') {
+                    setAlert({
+                        type: 'error',
+                        message: `Gagal menyimpan pembelian: ${errors}`
+                    });
                 } else {
-                    // Concatenate other field-specific errors or show a generic one
-                    const errorMessages = Object.values(errors).join(' \n');
-                    setAlert({ type: 'error', message: errorMessages || 'Gagal menyimpan pembelian. Mohon cek data Anda.' });
+                    setAlert({
+                        type: 'error',
+                        message: 'Terjadi kesalahan saat menyimpan pembelian. Silakan coba lagi.'
+                    });
                 }
-                setProcessing(false);
-            },
+                
+                // Tampilkan error di console untuk debugging
+                console.error('Detail error:', errors);
+            }
         });
     };
     return (
@@ -222,21 +408,26 @@ export default function PurchaseCreate() {
                                     <Input id="no_faktur" name="no_faktur" value={header.no_faktur} onChange={handleHeaderChange} required />
                                 </div>
                                 <div>
-                                    <Label htmlFor="pbf">Supplier (PBF)</Label>
+                                    <Label htmlFor="pbf" className="text-gray-900 dark:text-white">Supplier (PBF)</Label>
                                     <Select 
                                         value={header.supplier_id || "_none"}
                                         onValueChange={handleSupplierChange}
                                     >
-                                        <SelectTrigger className="w-full bg-gray-900 text-white border-gray-700">
+                                        <SelectTrigger className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600">
                                             <SelectValue placeholder="Pilih Supplier" />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-gray-900 text-white">
-                                            <SelectItem value="_none">Select Supplier</SelectItem>
+                                        <SelectContent className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600">
+                                            <SelectItem value="_none">Pilih Supplier</SelectItem>
                                             {suppliers.map(s => (
-                                                <SelectItem key={s.id} value={String(s.id)}>{s.company}</SelectItem>
+                                                <SelectItem key={s.id} value={String(s.id)} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+                                                    {s.company}
+                                                </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                    {alert?.type === 'error' && alert.message.includes('PBF') && (
+                                        <p className="text-sm text-red-500 mt-1">PBF harus dipilih</p>
+                                    )}
                                 </div>
                                 <div>
                                     <Label htmlFor="tanggal_faktur">Tanggal Faktur</Label>
@@ -294,29 +485,83 @@ export default function PurchaseCreate() {
                             <h3 className="font-semibold mb-2">Detail Produk</h3>
                             {details.map((detail, idx) => (
                                 <div key={idx} className="grid grid-cols-1 md:grid-cols-8 gap-2 mb-3 items-end border p-3 rounded-lg relative shadow-sm">
-                                    <div className="md:col-span-2"> {/* Nama Produk wider */}
+                                    <div className="md:col-span-2">
                                         <Label htmlFor={`nama_produk_${idx}`}>Nama Produk (URAIAN)</Label>
-                                        <Input id={`nama_produk_${idx}`} name="nama_produk" value={detail.nama_produk} onChange={e => handleDetailChange(idx, e)} required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor={`jumlah_${idx}`}>QTY (JUMLAH)</Label>
-                                        <Input id={`jumlah_${idx}`} name="jumlah" type="number" value={detail.jumlah} onChange={e => handleDetailChange(idx, e)} required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor={`expired_${idx}`}>ED</Label>
-                                        <Input id={`expired_${idx}`} name="expired" type="date" value={detail.expired} onChange={e => handleDetailChange(idx, e)} required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor={`kemasan_${idx}`}>SATUAN (KMSN)</Label>
                                         <div className="relative">
-                                            <Input 
-                                                id={`kemasan_${idx}`} 
-                                                name="kemasan" 
-                                                value={detail.kemasan} 
-                                                onChange={e => handleDetailChange(idx, e)} 
+                                            <div className="flex">
+                                                <Input
+                                                    id={`nama_produk_${idx}`}
+                                                    name="nama_produk"
+                                                    value={detail.nama_produk}
+                                                    onChange={e => handleDetailChange(idx, e)}
+                                                    onKeyDown={e => e.key === 'Enter' && e.preventDefault()}
+                                                    list={`product-list-${idx}`}
+                                                    autoComplete="off"
+                                                    className="w-full pr-8"
+                                                    placeholder="Ketik nama produk..."
+                                                    required
+                                                />
+                                                {detail.nama_produk && !availableProducts.some((p: {name: string}) => p.name === detail.nama_produk) && (
+                                                    <button
+                                                        type="button"
+                                                        className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded flex items-center gap-1"
+                                                        onClick={() => handleAddNewProduct(idx, detail.nama_produk)}
+                                                    >
+                                                        <Plus className="h-3 w-3" />
+                                                        Tambah
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <datalist id={`product-list-${idx}`}>
+                                                {availableProducts.map((product) => (
+                                                    <option key={product.id} value={product.name} />
+                                                ))}
+                                            </datalist>
+                                            <datalist id={`kemasan-list-${idx}`}>
+                                                {existingKemasan.map((kemasan, i) => (
+                                                    <option key={i} value={kemasan} />
+                                                ))}
+                                            </datalist>
+                                            <div className="absolute right-2 top-2.5 text-xs text-gray-400">
+                                                {detail.kemasan && existingKemasan.includes(detail.kemasan) ? '✓' : 'Baru'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor={`expired_${idx}`}>KADALUARSA</Label>
+                                        <Input 
+                                            id={`expired_${idx}`} 
+                                            name="expired" 
+                                            type="date" 
+                                            value={detail.expired} 
+                                            onChange={e => handleDetailChange(idx, e)} 
+                                            required 
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor={`jumlah_${idx}`}>KUANTITAS (QTY)</Label>
+                                        <Input 
+                                            id={`jumlah_${idx}`} 
+                                            name="jumlah" 
+                                            type="number" 
+                                            min="1" 
+                                            value={detail.jumlah} 
+                                            onChange={e => handleDetailChange(idx, e)} 
+                                            required 
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor={`kemasan_${idx}`}>KATEGORI KEMASAN</Label>
+                                        <div className="relative">
+                                            <Input
+                                                id={`kemasan_${idx}`}
+                                                name="kemasan"
+                                                value={detail.kemasan}
+                                                onChange={e => handleDetailChange(idx, e)}
                                                 list={`kemasan-list-${idx}`}
-                                                className="w-full pr-8"
-                                                required 
+                                                autoComplete="off"
+                                                className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                                                placeholder="Pilih atau ketik kemasan..."
                                             />
                                             <datalist id={`kemasan-list-${idx}`}>
                                                 {existingKemasan.map((kemasan, i) => (
@@ -330,7 +575,16 @@ export default function PurchaseCreate() {
                                     </div>
                                     <div>
                                         <Label htmlFor={`harga_satuan_${idx}`}>HARGA SATUAN</Label>
-                                        <Input id={`harga_satuan_${idx}`} name="harga_satuan" type="number" value={detail.harga_satuan} onChange={e => handleDetailChange(idx, e)} required step="0.01"/>
+                                        <Input 
+                                            id={`harga_satuan_${idx}`} 
+                                            name="harga_satuan" 
+                                            type="number" 
+                                            value={detail.harga_satuan} 
+                                            onChange={e => handleDetailChange(idx, e)} 
+                                            required 
+                                            step="0.01"
+                                            min="0"
+                                        />
                                     </div>
                                     <div>
                                         <Label htmlFor={`gross_${idx}`}>GROSS</Label>

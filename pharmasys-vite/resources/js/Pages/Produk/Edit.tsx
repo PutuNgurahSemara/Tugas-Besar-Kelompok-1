@@ -56,7 +56,16 @@ type FormData = {
 
 export default function ProdukEdit() {
     const { produk, categories, defaultProfitMargin } = usePage<ProdukEditProps>().props;
-    const [preview, setPreview] = useState<string | null>(produk.image ? `/storage/${produk.image}` : null);
+    
+    // Fungsi untuk mendapatkan URL gambar yang benar
+    const getImageUrl = (imagePath: string | null) => {
+        if (!imagePath) return null;
+        return imagePath.startsWith('http') || imagePath.startsWith('/storage/') 
+            ? imagePath 
+            : `/storage/${imagePath}`;
+    };
+    
+    const [preview, setPreview] = useState<string | null>(getImageUrl(produk.image));
     const [useCustomName, setUseCustomName] = useState<boolean>(false);
     
     const { data, setData, post, errors, processing, progress } = useForm<FormData>({
@@ -261,11 +270,32 @@ export default function ProdukEdit() {
                                     {progress && (
                                         <Progress value={progress.percentage} className="w-full mt-2" />
                                     )}
-                                    {preview && (
-                                        <div className="mt-4">
-                                            <img src={preview} alt="Preview" className="h-20 w-20 object-cover rounded" />
-                                        </div>
-                                    )}
+                                    <div className="mt-4 flex items-center gap-4">
+                                        {preview ? (
+                                            <>
+                                                <img 
+                                                    src={preview} 
+                                                    alt="Preview" 
+                                                    className="h-20 w-20 object-cover rounded border"
+                                                />
+                                                <Button 
+                                                    type="button" 
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setPreview(null);
+                                                        setData('image', null);
+                                                    }}
+                                                >
+                                                    Hapus Gambar
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <div className="h-20 w-20 flex items-center justify-center border-2 border-dashed rounded text-muted-foreground">
+                                                No Image
+                                            </div>
+                                        )}
+                                    </div>
                                     <InputError message={errors.image} className="mt-2" />
                                 </div>
                             </div>

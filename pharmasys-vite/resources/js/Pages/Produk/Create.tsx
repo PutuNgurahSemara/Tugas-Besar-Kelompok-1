@@ -243,21 +243,37 @@ export default function ProdukCreate() {
 
     const handlePurchaseDetailSelect = (detailId: string) => {
         const detail = availablePurchaseDetails.find(d => d.id.toString() === detailId);
-        setData('purchase_detail_id', detailId); // Keep this to send to backend
-        setSelectedPurchaseDetail(detail || null);
-        // Reset fields that depend on selectedPurchaseDetail, they will be repopulated by useEffect
+        if (!detail) return;
+        
+        setData('purchase_detail_id', detailId);
+        setSelectedPurchaseDetail(detail);
+        
+        // Check if this product is registered
+        const isProductRegistered = existingProductsData[detail.nama_produk] !== undefined;
+        
+        // If product is registered, use its data, otherwise use the purchase detail data
+        const existingProduct = isProductRegistered ? existingProductsData[detail.nama_produk] : null;
+        
         setData(currentData => ({
             ...currentData,
-            nama: '',
-            expired_at: '',
-            harga: '',
-            margin: '', // Keep or reset margin? Let's keep user-entered margin for now.
-            // category_id: '', // Keep or reset category?
+            nama: detail.nama_produk,
+            category_id: existingProduct?.category_id ? String(existingProduct.category_id) : '',
+            margin: existingProduct?.margin !== null && existingProduct?.margin !== undefined 
+                ? String(existingProduct.margin) 
+                : (defaultProfitMargin?.toString() || '20'),
+            harga: '', // Will be calculated in useEffect
+            quantity: 1, // Default to 1
+            custom_nama: '', // Reset custom name
+            expired_at: detail.expired || ''
         }));
     };
 
-    const itemsAlreadyProductCount = availablePurchaseDetails.filter(detail => !!existingProductsData[detail.nama_produk]).length;
+    // Calculate summary information
+    const itemsAlreadyProductCount = availablePurchaseDetails.filter(
+        detail => existingProductsData[detail.nama_produk] !== undefined
+    ).length;
     const totalSourceItems = availablePurchaseDetails.length;
+    
     let summaryMessage = '';
     if (totalSourceItems > 0) {
         if (itemsAlreadyProductCount === totalSourceItems) {
@@ -312,15 +328,25 @@ export default function ProdukCreate() {
                                         </SelectTrigger>
                                         <SelectContent className="max-h-80 overflow-y-auto">
                                             {availablePurchaseDetails.map((detail) => {
-                                                const isAlreadyProduct = !!existingProductsData[detail.nama_produk];
+                                                // Check if this product name exists in the existing products
+                                                const isProductRegistered = existingProductsData[detail.nama_produk] !== undefined;
+                                                
                                                 return (
                                                     <SelectItem 
                                                         key={detail.id} 
                                                         value={String(detail.id)}
-                                                        style={isAlreadyProduct ? { color: '#10B981', fontWeight: 'bold' } : {}}
+                                                        style={isProductRegistered ? { color: '#10B981', fontWeight: 'bold' } : {}}
                                                     >
-                                                        {detail.nama_produk} - {detail.purchase_no} ({detail.supplier}) - Stok: {detail.available_quantity} {detail.kemasan}
-                                                        {isAlreadyProduct && <span className="ml-1 text-xs text-gray-500">(Akan restock produk yang ada)</span>}
+                                                        <div className="flex items-center justify-between">
+                                                            <span>
+                                                                {detail.nama_produk} - {detail.purchase_no} ({detail.supplier}) - Stok: {detail.available_quantity} {detail.kemasan}
+                                                            </span>
+                                                            {isProductRegistered && (
+                                                                <span className="ml-2 text-xs text-muted-foreground">
+                                                                    (Akan restock produk yang ada)
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </SelectItem>
                                                 );
                                             })}

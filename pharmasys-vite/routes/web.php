@@ -95,9 +95,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     
     Route::middleware('permission:view-products')->group(function() {
+        // Draft products
+        Route::get('produk/drafts', [ProdukController::class, 'drafts'])
+            ->name('produk.drafts');
+            
+        // Activate product
+        Route::post('produk/{produk}/activate', [ProdukController::class, 'activate'])
+            ->middleware('permission:edit-products')
+            ->name('produk.activate');
+            
         Route::get('produk/outstock', [ProdukController::class, 'outstock'])
             ->middleware('permission:view-outstock-products')
             ->name('produk.outstock');
+            
         Route::get('produk/expired', [ProdukController::class, 'expired'])
             ->middleware('permission:view-expired-products')
             ->name('produk.expired');

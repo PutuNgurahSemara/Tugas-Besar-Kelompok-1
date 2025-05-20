@@ -54,27 +54,40 @@ class SaleController extends Controller
      */
     public function create()
     {
-        $products = Produk::with(['purchaseDetails'])
-            ->whereHas('purchaseDetails', function($query) {
-                $query->where('jumlah', '>', 0)
-                    ->whereNull('deleted_at');
-            })
-            ->orWhereHas('purchaseDetails', function($query) {
-                $query->where('produk_id', '!=', null)
-                    ->whereNull('deleted_at');
-            })
-            ->orderBy('nama')
-            ->get()
-            ->map(function($product) {
-                $totalStock = $product->purchaseDetails->sum('jumlah');
-                return [
-                    'id' => $product->id,
-                    'nama' => $product->nama,
-                    'harga' => $product->harga,
-                    'quantity' => $totalStock,
-                    'image' => $product->image,
-                ];
-            });
+        $today = now()->format('Y-m-d');
+        
+        $products = Produk::with(['purchaseDetails' => function($query) use ($today) {
+            $query->where('jumlah', '>', 0)
+                ->where(function($q) use ($today) {
+                    $q->where('expired', '>', $today)
+                      ->orWhereNull('expired');
+                });
+        }])
+        ->where('status', Produk::STATUS_ACTIVE)
+        ->whereHas('purchaseDetails', function($query) use ($today) {
+            $query->where('jumlah', '>', 0)
+                ->where(function($q) use ($today) {
+                    $q->where('expired', '>', $today)
+                      ->orWhereNull('expired');
+                });
+        })
+        ->orderBy('nama')
+        ->get()
+        ->filter(function($product) {
+            // Hanya ambil produk yang memiliki stok valid (tidak kadaluarsa)
+            return $product->purchaseDetails->sum('jumlah') > 0;
+        })
+        ->map(function($product) {
+            $validStock = $product->purchaseDetails->sum('jumlah');
+            
+            return [
+                'id' => $product->id,
+                'nama' => $product->nama,
+                'harga' => $product->harga,
+                'quantity' => $validStock,
+                'image' => $product->image,
+            ];
+        });
         
         return Inertia::render('Sales/Create', [
             'products' => $products
@@ -97,23 +110,44 @@ class SaleController extends Controller
 
         // Hitung total price di backend
         $calculatedTotalPrice = 0;
+        $today = now()->format('Y-m-d');
         $produkIds = array_column($validated['items'], 'produk_id');
-        $produksInDb = Produk::with('purchaseDetails')
+        
+        // Ambil produk dengan stok yang valid (tidak kadaluarsa)
+        $produksInDb = Produk::with(['purchaseDetails'])
             ->whereIn('id', $produkIds)
             ->get()
-            ->mapWithKeys(function($produk) {
-                $totalStock = $produk->purchaseDetails->sum('jumlah');
-                return [$produk->id => [
+            ->map(function($produk) use ($today) {
+                // Filter stok yang valid secara manual
+                $validPurchaseDetails = $produk->purchaseDetails->filter(function($detail) use ($today) {
+                    return $detail->jumlah > 0 && 
+                           ($detail->expired === null || $detail->expired > $today);
+                })->sortBy('expired'); // Urutkan berdasarkan yang paling dekat kadaluarsanya
+                
+                $validStock = $validPurchaseDetails->sum('jumlah');
+                
+                return [
+                    'id' => $produk->id,
                     'harga' => $produk->harga,
-                    'stock' => $totalStock
-                ]];
-            });
+                    'stock' => $validStock,
+                    'purchaseDetails' => $validPurchaseDetails
+                ];
+            })
+            ->keyBy('id');
 
+        // Validasi stok yang tersedia
         foreach ($validated['items'] as $itemData) {
             $produkInfo = $produksInDb[$itemData['produk_id']] ?? null;
-            if (!$produkInfo || $produkInfo['stock'] < $itemData['quantity']) {
-                throw new Exception('Insufficient stock for product ID: ' . $itemData['produk_id']);
+            
+            if (!$produkInfo) {
+                throw new Exception('Produk tidak ditemukan atau sudah tidak tersedia');
             }
+            
+            if ($produkInfo['stock'] < $itemData['quantity']) {
+                $produk = Produk::find($itemData['produk_id']);
+                throw new Exception('Stok tidak mencukupi untuk produk: ' . ($produk->nama ?? '') . '. Stok tersedia: ' . $produkInfo['stock']);
+            }
+            
             $price = $produkInfo['harga'];
             $calculatedTotalPrice += $price * $itemData['quantity'];
         }

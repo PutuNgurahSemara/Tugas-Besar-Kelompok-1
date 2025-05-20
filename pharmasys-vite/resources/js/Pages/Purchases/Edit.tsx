@@ -1,384 +1,1047 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type Category, type Supplier } from '@/types';
-import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
+import { Head, Link, usePage, router } from '@inertiajs/react';
+
+declare global {
+    interface Window {
+        toastr?: {
+            success: (message: string, title?: string, options?: any) => void;
+            error: (message: string, title?: string, options?: any) => void;
+            info: (message: string, title?: string, options?: any) => void;
+            warning: (message: string, title?: string, options?: any) => void;
+        };
+    }
+}
+import type { PageProps } from '@/types/inertia';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import InputError from '@/components/InputError';
-import { useState, useEffect } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Progress } from "@/components/ui/progress";
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Trash2, Plus, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import axios from 'axios';
 
-interface PurchaseEditProps {
+type Product = {
+    id: number;
+    name: string;
+};
+
+interface PurchaseEditPageProps extends PageProps {
     purchase: any;
-    categories: Category[];
     suppliers: Supplier[];
-    usedQuantity: number;
-    existingProducts: string[];
-    remainingQuantity: number;
-    [key: string]: any;
+    products: Product[];
+    categories: Category[];
+    [key: string]: unknown;
 }
+
+
 
 interface DetailItem {
-    id?: number | null;
+    id?: number;
+    product_id?: string | number;
+    product_name?: string;
     nama_produk: string;
     expired: string;
-    jumlah: string; // QTY
-    kemasan: string; // SATUAN
-    harga_satuan: string; // HARGA SATUAN
-    gross: string; // QTY * HARGA SATUAN (auto-calculated)
-    discount_percentage: string; // DISC (%) (input)
-    sub_total: string; // GROSS - (GROSS * DISC (%)) (auto-calculated, formerly 'total')
-    [key: string]: any; 
+    jumlah: string;
+    kemasan: string;
+    harga_satuan: string;
+    gross: string;
+    discount_percentage: string;
+    sub_total: string;
+    [key: string]: string | number | undefined;
 }
 
-export default function PurchaseEdit() {
-    const { purchase, categories, suppliers, errors: pageErrors } = usePage<PurchaseEditProps>().props;
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: route('dashboard') },
+    { title: 'Purchases', href: route('purchases.index') },
+    { title: 'Edit Purchase', href: '#' },
+];
 
-    const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Dashboard', href: route('dashboard') },
-        { title: 'Purchases', href: route('purchases.index') },
-        { title: 'Edit Purchase', href: route('purchases.edit', purchase.id) },
-    ];
+export default function PurchaseEdit({
+    purchase: initialPurchase,
+    suppliers: initialSuppliers,
+    products: productsProp = [],
+    categories
+}: PurchaseEditPageProps) {
+    // State untuk daftar produk yang tersedia
+    const [availableProducts, setAvailableProducts] = useState<Product[]>(productsProp);
+    
+    // State untuk menyimpan riwayat input obat
+    const [productHistory, setProductHistory] = useState<Set<string>>(new Set(
+        productsProp.map((p: Product) => p.name.toLowerCase())
+    ));
 
-    const [preview, setPreview] = useState<string | null>(null);
+    // Update availableProducts ketika productsProp berubah
+    useEffect(() => {
+        setAvailableProducts(productsProp);
+    }, [productsProp]);
 
-    const formatDateForInput = (dateString: string | null | undefined): string => {
-        if (!dateString) return '';
-        try {
-            return new Date(dateString).toISOString().split('T')[0];
-        } catch (e) {
-            console.error("Error formatting date:", dateString, e);
-            return ''; 
+    // State untuk header form
+    const [header, setHeader] = useState(() => {
+        // Format tanggal ke YYYY-MM-DD untuk input type="date"
+        const formatDate = (dateString: string | null) => {
+            if (!dateString) return '';
+            try {
+                const date = new Date(dateString);
+                // Pastikan tanggal valid sebelum diformat
+                if (isNaN(date.getTime())) return '';
+                return date.toISOString().split('T')[0];
+            } catch (e) {
+                return '';
+            }
+        };
+
+        // Pastikan supplier_id selalu string dan valid
+        const getSupplierId = () => {
+            if (initialPurchase.supplier_id) {
+                return String(initialPurchase.supplier_id);
+            }
+            if (initialPurchase.supplier?.id) {
+                return String(initialPurchase.supplier.id);
+            }
+            return '';
+        };
+
+        return {
+            no_faktur: initialPurchase.no_faktur || '',
+            supplier_id: getSupplierId(),
+            tanggal_faktur: formatDate(initialPurchase.tanggal_invoice || initialPurchase.tanggal_faktur || ''),
+            jatuh_tempo: formatDate(initialPurchase.tanggal_jatuh_tempo || initialPurchase.jatuh_tempo || ''),
+            tanggal_pembayaran: formatDate(initialPurchase.tanggal_pembayaran || ''),
+            keterangan: initialPurchase.catatan || initialPurchase.keterangan || '',
+        };
+    });
+    
+    // State untuk detail produk
+    const [details, setDetails] = useState<DetailItem[]>(() => {
+        if (initialPurchase.details?.length) {
+            return initialPurchase.details.map((detail: any) => {
+                const jumlah = parseFloat(detail.jumlah) || 0;
+                const hargaSatuan = parseFloat(detail.harga_satuan) || 0;
+                const diskon = parseFloat(detail.discount_percentage || detail.diskon || '0') || 0;
+                const gross = parseFloat(detail.gross) || (jumlah * hargaSatuan);
+                const subTotal = parseFloat(detail.sub_total) || (gross - (gross * diskon / 100));
+                const productName = detail.product?.name || detail.nama_produk || detail.product_name || '';
+                
+                // Format tanggal kadaluarsa ke YYYY-MM-DD
+                const formatExpiredDate = (dateString: string | null) => {
+                    if (!dateString) return '';
+                    try {
+                        const date = new Date(dateString);
+                        // Pastikan tanggal valid
+                        if (isNaN(date.getTime())) return '';
+                        return date.toISOString().split('T')[0];
+                    } catch (e) {
+                        return '';
+                    }
+                };
+                
+                // Tambahkan ke riwayat produk
+                if (productName) {
+                    setProductHistory(prev => new Set(prev).add(productName.toLowerCase()));
+                }
+                
+                return {
+                    id: detail.id,
+                    product_id: detail.product_id,
+                    product_name: productName,
+                    nama_produk: productName,
+                    expired: formatExpiredDate(detail.expired_date || detail.expired || ''),
+                    jumlah: jumlah.toString(),
+                    kemasan: detail.kemasan || '',
+                    harga_satuan: hargaSatuan.toString(),
+                    gross: gross.toString(),
+                    discount_percentage: diskon.toString(),
+                    sub_total: subTotal.toString(),
+                };
+            });
+        }
+        
+        return [{
+            nama_produk: '',
+            expired: '',
+            jumlah: '',
+            kemasan: '',
+            harga_satuan: '',
+            gross: '0',
+            discount_percentage: '0',
+            sub_total: '0',
+        }];
+    });
+
+    const [processing, setProcessing] = useState(false);
+    const [status, setStatus] = useState(initialPurchase.status || 'UNPAID');
+    const [ppnPercentage, setPpnPercentage] = useState(initialPurchase.ppn_percentage?.toString() || '0');
+    
+    // Update status berdasarkan tanggal pembayaran
+    useEffect(() => {
+        if (header.tanggal_pembayaran) setStatus('PAID');
+        else setStatus('UNPAID');
+    }, [header.tanggal_pembayaran]);
+
+    // Fungsi untuk mencari produk
+    const searchProducts = (query: string) => {
+        const searchTerm = query.trim().toLowerCase();
+        
+        // Tambahkan ke riwayat pencarian jika lebih dari 1 karakter
+        if (searchTerm.length > 1) {
+            setProductHistory(prev => {
+                const newHistory = new Set(prev);
+                newHistory.add(searchTerm.toLowerCase());
+                return newHistory;
+            });
         }
     };
 
-    const [header, setHeader] = useState({
-        no_faktur: purchase.no_faktur || '',
-        pbf: purchase.pbf || '', // Assuming pbf (supplier name string) is what's needed for the Select
-        supplier_id: purchase.supplier_id || '', // Keep supplier_id if available/needed
-        tanggal_faktur: formatDateForInput(purchase.tanggal_faktur),
-        jatuh_tempo: formatDateForInput(purchase.jatuh_tempo),
-        jumlah: purchase.jumlah || '', // This should be the count of item types
-        // total: purchase.total || '', // Total is calculated or comes from backend
-        keterangan: purchase.keterangan || '',
-    });
-    const [details, setDetails] = useState(
-        purchase.details && purchase.details.length > 0
-            ? purchase.details.map((d: any) => ({
-                id: d.id || null,
-                nama_produk: d.nama_produk || '',
-                expired: formatDateForInput(d.expired),
-                jumlah: d.jumlah?.toString() || '0',
-                kemasan: d.kemasan || '',
-                harga_satuan: d.harga_satuan?.toString() || '0',
-                // Calculate gross and discount_percentage if not available, assume 0 discount initially
-                // Backend should ideally provide these if they are stored.
-                // For now, we'll calculate gross and assume discount_percentage is 0 if not present.
-                // And sub_total will be d.total from backend.
-                gross: (parseFloat(d.jumlah?.toString() || '0') * parseFloat(d.harga_satuan?.toString() || '0')).toFixed(2),
-                discount_percentage: d.discount_percentage?.toString() || '0', // Assuming it might come from backend
-                sub_total: d.total?.toString() || '0', // This 'total' from backend is the item's sub_total
-            }))
-            : [ // Default for new row if purchase had no details (should not happen for edit)
-                {
-                    id: null,
-                    nama_produk: '',
-                    expired: '',
-                    jumlah: '0',
-                    kemasan: '',
-                    harga_satuan: '0',
-                    gross: '0',
-                    discount_percentage: '0',
-                    sub_total: '0',
-                },
-            ]
-    );
-    const [processing, setProcessing] = useState(false);
-    const [tanggalPembayaran, setTanggalPembayaran] = useState(formatDateForInput(purchase.tanggal_pembayaran));
-    const [status, setStatus] = useState(purchase.tanggal_pembayaran ? 'PAID' : 'UNPAID');
-    const [ppnPercentage, setPpnPercentage] = useState<string>(purchase.ppn_percentage?.toString() || '0');
+    // Daftar kemasan yang sudah ada
+    const existingKemasan: string[] = useMemo(() => {
+        const kemasanSet = new Set<string>();
+        categories.forEach((category: Category) => {
+            kemasanSet.add(category.name);
+        });
+        return Array.from(kemasanSet).sort();
+    }, [categories]);
 
+    // Hitung jumlah produk
     const jumlahProduk = details.length;
-    const subTotalDisplay = details.reduce((sum: number, d: DetailItem) => sum + (parseFloat(d.sub_total) || 0), 0);
+
+    // Hitung total
+    const subTotalDisplay = details.reduce((sum, d) => sum + (parseFloat(d.sub_total) || 0), 0);
     const ppnAmountDisplay = (subTotalDisplay * (parseFloat(ppnPercentage) || 0)) / 100;
     const grandTotalDisplay = subTotalDisplay + ppnAmountDisplay;
-    const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    // const { data, setData, put, errors, processing: formProcessing } = useForm({
-    //     product: purchase.product || '',
-    //     category_id: purchase.category_id || '',
-    //     supplier_id: purchase.supplier_id || '',
-    //     cost_price: purchase.cost_price || '',
-    //     quantity: purchase.quantity || 1,
-    //     due_date: purchase.due_date || '',
-    //     status: purchase.status || 'UNPAID',
-    // });
-
-    useEffect(() => {
-        if (tanggalPembayaran) setStatus('PAID');
-        else setStatus('UNPAID');
-    }, [tanggalPembayaran]);
-
-    function submit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        setProcessing(true);
-        setAlert(null);
-
-        const payload = {
-            ...header,
-            jumlah: details.length,
-            tanggal_pembayaran: tanggalPembayaran || null,
-            ppn_percentage: parseFloat(ppnPercentage) || 0,
-            details: details.map((d: DetailItem) => ({
-                id: d.id || null,
-                nama_produk: d.nama_produk,
-                expired: d.expired,
-                jumlah: parseInt(d.jumlah) || 0,
-                kemasan: d.kemasan,
-                harga_satuan: parseFloat(d.harga_satuan) || 0,
-                gross: parseFloat(d.gross) || 0, // Send gross
-                discount_percentage: parseFloat(d.discount_percentage) || 0, // Send discount_percentage
-                total: parseFloat(d.sub_total) || 0, // Send item's sub_total as 'total'
-            })),
-        };
-
-        router.put(route('purchases.update', purchase.id), payload as any, {
-            onSuccess: () => {
-                setAlert({ type: 'success', message: 'Pembelian berhasil diperbarui!' });
-                setProcessing(false);
-            },
-            onError: (formErrors) => { // Changed 'errors' to 'formErrors' to avoid conflict with pageErrors from props
-                // pageErrors from usePage().props contains errors from the initial page load or previous validation errors.
-                // formErrors argument here contains the errors specific to THIS form submission.
-                let specificErrorMessage = '';
-                if (formErrors) {
-                    specificErrorMessage = Object.values(formErrors).flat().join(' ');
-                }
-
-                if (formErrors.general) {
-                    setAlert({ type: 'error', message: formErrors.general });
-                } else if (specificErrorMessage) {
-                    setAlert({ type: 'error', message: specificErrorMessage });
-                } else {
-                    setAlert({ type: 'error', message: 'Gagal memperbarui pembelian. Mohon cek data Anda.' });
-                }
-                setProcessing(false);
-            },
-        });
-    }
-
-    const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setHeader({ ...header, [e.target.name]: e.target.value });
+    // Handler perubahan header
+    const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setHeader(prev => ({ ...prev, [name]: value }));
+    };
+    
+    // Handler perubahan tanggal pembayaran
+    const handleTanggalPembayaranChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newValue = e.target.value;
+        setHeader(prev => ({ ...prev, tanggal_pembayaran: newValue }));
     };
 
+    // Handler perubahan detail produk
     const handleDetailChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
         const newDetails = [...details];
-        const field = e.target.name as keyof DetailItem;
-        newDetails[index][field] = e.target.value;
+        const field = e.target.name;
+        const value = e.target.value;
+        
+        // Pastikan field yang diubah adalah field yang valid pada DetailItem
+        if (field in newDetails[index]) {
+            // Update nilai field yang berubah dengan tipe yang sesuai
+            newDetails[index] = {
+                ...newDetails[index],
+                [field]: value
+            };
 
-        const qty = parseFloat(newDetails[index].jumlah) || 0;
-        const unitPrice = parseFloat(newDetails[index].harga_satuan) || 0;
-        const discPercentage = parseFloat(newDetails[index].discount_percentage) || 0;
+            // Jika field yang berubah adalah nama_produk dan ada tombol enter
+            if (field === 'nama_produk' && e.nativeEvent instanceof KeyboardEvent && e.nativeEvent.key === 'Enter') {
+                e.preventDefault();
+                if (value && !availableProducts.some(p => p.name === value)) {
+                    handleAddNewProduct(index, value);
+                    return; // Keluar dari fungsi karena handleAddNewProduct akan memperbarui state
+                }
+            }
 
-        const gross = qty * unitPrice;
-        newDetails[index].gross = gross.toFixed(2);
+            // Hitung ulang jika field yang berubah mempengaruhi perhitungan
+            if (['jumlah', 'harga_satuan', 'discount_percentage'].includes(field)) {
+                const qty = parseFloat(newDetails[index].jumlah) || 0;
+                const unitPrice = parseFloat(newDetails[index].harga_satuan) || 0;
+                const discPercentage = parseFloat(newDetails[index].discount_percentage) || 0;
 
-        const discountAmount = (gross * discPercentage) / 100;
-        const subTotal = gross - discountAmount;
-        newDetails[index].sub_total = subTotal.toFixed(2);
-
-        setDetails(newDetails);
+                const gross = qty * unitPrice;
+                const discountAmount = (gross * discPercentage) / 100;
+                const subTotal = gross - discountAmount;
+                
+                newDetails[index] = {
+                    ...newDetails[index],
+                    gross: gross.toFixed(2),
+                    sub_total: subTotal.toFixed(2)
+                };
+            }
+            
+            setDetails(newDetails);
+        }
     };
 
-    const addDetailRow = () => {
-        setDetails([
-            ...details,
-            {
-                id: null,
-                nama_produk: '',
+    // Tambah produk baru
+    const handleAddNewProduct = (index: number, productName: string) => {
+        const trimmedName = productName.trim();
+        if (!trimmedName) return;
+        
+        // Cek apakah produk sudah ada
+        const productExists = availableProducts.some(p => 
+            p.name.toLowerCase() === trimmedName.toLowerCase()
+        );
+        
+        // Update available products jika produk belum ada
+        if (!productExists) {
+            const newProduct = {
+                id: Date.now(), // ID sementara
+                name: trimmedName
+            };
+            
+            setAvailableProducts(prev => [...prev, newProduct]);
+        }
+        
+        // Update input field dengan nama produk
+        setDetails(prev => {
+            const newDetails = [...prev];
+            newDetails[index] = {
+                ...newDetails[index],
+                nama_produk: trimmedName,
+                product_name: trimmedName
+            };
+            return newDetails;
+        });
+        
+        // Tambahkan ke riwayat produk
+        setProductHistory(prev => {
+            const newHistory = new Set(prev);
+            newHistory.add(trimmedName.toLowerCase());
+            return newHistory;
+        });
+    };
+
+    // Tambahkan semua produk yang tersedia ke daftar pembelian
+    const handleAddAllProducts = () => {
+        if (availableProducts.length === 0) return;
+        
+        setDetails(prevDetails => {
+            // Buat Set dari nama produk yang sudah ada untuk pencarian yang lebih cepat
+            const existingProductNames = new Set(
+                prevDetails.map(d => d.nama_produk.toLowerCase())
+            );
+            
+            // Filter produk yang belum ada di details
+            const newProducts = availableProducts.filter((product: Product) => 
+                !existingProductNames.has(product.name.toLowerCase())
+            );
+            
+            if (newProducts.length === 0) {
+                // Tidak ada produk baru untuk ditambahkan
+                return prevDetails;
+            }
+            
+            // Buat detail baru untuk setiap produk yang belum ada
+            const newDetails = newProducts.map((product: Product) => ({
+                nama_produk: product.name,
                 expired: '',
-                jumlah: '0',
+                jumlah: '1',
                 kemasan: '',
                 harga_satuan: '0',
                 gross: '0',
                 discount_percentage: '0',
                 sub_total: '0',
-            },
+                product_id: product.id,
+                product_name: product.name
+            }));
+            
+            // Gabungkan dengan details yang sudah ada
+            const updatedDetails = [...prevDetails, ...newDetails];
+            
+            // Tampilkan notifikasi
+            alert(`Berhasil menambahkan ${newProducts.length} produk ke daftar pembelian`);
+            
+            return updatedDetails;
+        });
+    };
+
+    // Tambah baris detail
+    const addDetailRow = () => {
+        setDetails([
+            ...details,
+            {
+                nama_produk: '',
+                expired: '',
+                jumlah: '',
+                kemasan: '',
+                harga_satuan: '',
+                gross: '0',
+                discount_percentage: '0',
+                sub_total: '0',
+            }
         ]);
     };
 
+    // Hapus baris detail
     const removeDetailRow = (index: number) => {
-        const newDetails = details.filter((_: any, i: number) => i !== index);
+        if (details.length <= 1) return;
+        
+        const newDetails = details.filter((_, i) => i !== index);
         setDetails(newDetails);
     };
 
+    // Handle submit form
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        // Validasi form hanya untuk field yang diubah
+        const isFormChanged = 
+            header.no_faktur !== initialPurchase.no_faktur ||
+            header.supplier_id !== String(initialPurchase.supplier_id) ||
+            header.tanggal_faktur !== initialPurchase.tanggal_faktur ||
+            header.jatuh_tempo !== initialPurchase.jatuh_tempo ||
+            header.keterangan !== (initialPurchase.keterangan || '') ||
+            status !== initialPurchase.status ||
+            ppnPercentage !== String(initialPurchase.ppn_percentage || '0');
+            
+        // Jika ada perubahan pada header, lakukan validasi
+        if (isFormChanged) {
+            const requiredFields = [];
+            
+            // Hanya validasi field yang berubah
+            if (header.no_faktur !== initialPurchase.no_faktur) {
+                requiredFields.push({ field: header.no_faktur, name: 'Nomor Faktur' });
+            }
+            if (header.supplier_id !== String(initialPurchase.supplier_id)) {
+                requiredFields.push({ field: header.supplier_id, name: 'PBF' });
+            }
+            if (header.tanggal_faktur !== initialPurchase.tanggal_faktur) {
+                requiredFields.push({ field: header.tanggal_faktur, name: 'Tanggal Faktur' });
+            }
+            if (header.jatuh_tempo !== initialPurchase.jatuh_tempo) {
+                requiredFields.push({ field: header.jatuh_tempo, name: 'Jatuh Tempo' });
+            }
+            
+            const missingFields = requiredFields.filter(field => !field.field).map(field => field.name);
+            
+            if (missingFields.length > 0) {
+                alert(`Harap isi semua field yang diperlukan: ${missingFields.join(', ')}`);
+                return;
+            }
+        }
+        
+        // Buat salinan details untuk dimodifikasi
+        const updatedDetails = [...details];
+        
+        // Set default value untuk field yang kosong pada setiap detail
+        updatedDetails.forEach(detail => {
+            if (!detail.harga_satuan || isNaN(parseFloat(detail.harga_satuan))) {
+                detail.harga_satuan = '0';
+            }
+            if (!detail.jumlah || isNaN(parseFloat(detail.jumlah))) {
+                detail.jumlah = '0';
+            }
+            if (!detail.discount_percentage || isNaN(parseFloat(detail.discount_percentage))) {
+                detail.discount_percentage = '0';
+            }
+            
+            // Hitung ulang gross dan sub_total
+            const jumlah = parseFloat(detail.jumlah) || 0;
+            const hargaSatuan = parseFloat(detail.harga_satuan) || 0;
+            const diskon = parseFloat(detail.discount_percentage) || 0;
+            
+            detail.gross = (jumlah * hargaSatuan).toString();
+            const totalDiskon = (parseFloat(detail.gross) * diskon) / 100;
+            detail.sub_total = (parseFloat(detail.gross) - totalDiskon).toString();
+        });
+        
+        // Update state details dengan nilai yang sudah dihitung ulang
+        setDetails(updatedDetails);
+        
+        // Validasi detail produk hanya jika ada perubahan
+        const isDetailsChanged = JSON.stringify(updatedDetails) !== JSON.stringify(initialPurchase.details || []);
+        
+        if (isDetailsChanged) {
+            if (updatedDetails.length === 0) {
+                alert('Minimal harus ada 1 produk');
+                return;
+            }
+            
+            const invalidDetails = updatedDetails.some(detail => {
+                return !detail.nama_produk || !detail.jumlah || !detail.harga_satuan || !detail.expired;
+            });
+            
+            if (invalidDetails) {
+                alert('Semua produk harus memiliki nama, jumlah, harga, dan tanggal kadaluarsa');
+                return;
+            }
+        }
+        
+        setProcessing(true);
+
+        // Siapkan data untuk dikirim ke server
+        const formData = new FormData();
+        
+        // Tambahkan CSRF token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (csrfToken) {
+            formData.append('_token', csrfToken);
+        }
+        
+        // Data header
+        formData.append('_method', 'PUT');
+        formData.append('no_faktur', header.no_faktur || '');
+        
+        // Pastikan supplier_id yang dikirim valid
+        console.log('Initial Purchase:', {
+            supplier_id: initialPurchase.supplier_id,
+            supplier: initialPurchase.supplier,
+            header_supplier_id: header.supplier_id
+        });
+        
+        // Dapatkan supplier_id dari sumber yang paling mungkin
+        const getSupplierId = () => {
+            // Coba dari header terlebih dahulu
+            if (header.supplier_id) return header.supplier_id;
+            
+            // Coba dari initialPurchase.supplier_id
+            if (initialPurchase.supplier_id) return String(initialPurchase.supplier_id);
+            
+            // Coba dari relasi supplier jika ada
+            if (initialPurchase.supplier?.id) return String(initialPurchase.supplier.id);
+            
+            return '';
+        };
+        
+        const finalSupplierId = getSupplierId();
+        console.log('Final Supplier ID to send:', finalSupplierId);
+        
+        if (!finalSupplierId) {
+            alert('Supplier tidak valid. Silakan pilih supplier yang valid.');
+            setProcessing(false);
+            return;
+        }
+        
+        // Selalu kirim supplier_id dan pbf dengan nilai yang sama
+        formData.set('supplier_id', finalSupplierId);
+        formData.set('pbf', finalSupplierId);
+        
+        formData.append('tanggal_faktur', header.tanggal_faktur || new Date().toISOString().split('T')[0]);
+        formData.append('tanggal_invoice', header.tanggal_faktur || new Date().toISOString().split('T')[0]);
+        formData.append('jatuh_tempo', header.jatuh_tempo || '');
+        formData.append('status', status || 'UNPAID');
+        formData.append('keterangan', header.keterangan || '');
+        formData.append('ppn_percentage', ppnPercentage || '0');
+        formData.append('catatan', header.keterangan || '');
+        
+        // Hitung total jumlah produk
+        const totalJumlah = updatedDetails.reduce((sum, detail) => {
+            return sum + (parseFloat(detail.jumlah) || 0);
+        }, 0);
+        formData.append('jumlah', String(totalJumlah));
+        
+        // Hitung total pembelian
+        const totalPembelian = updatedDetails.reduce((sum, detail) => {
+            return sum + (parseFloat(detail.sub_total) || 0);
+        }, 0);
+        formData.append('total', String(totalPembelian));
+        
+        if (status === 'PAID' && header.tanggal_pembayaran) {
+            formData.append('tanggal_pembayaran', header.tanggal_pembayaran);
+        }
+        
+        // Tambahkan detail produk
+        updatedDetails.forEach((detail, index) => {
+            const detailData = {
+                id: detail.id || '',
+                product_id: detail.product_id || '',
+                product_name: detail.nama_produk || '',
+                nama_produk: detail.nama_produk || '',
+                jumlah: detail.jumlah || '0',
+                kemasan: detail.kemasan || '',
+                harga_satuan: detail.harga_satuan || '0',
+                diskon: detail.discount_percentage || '0',
+                sub_total: detail.sub_total || '0',
+                expired: detail.expired || '',
+                expired_date: detail.expired || '',
+                gross: detail.gross || '0',
+                total: detail.sub_total || '0'
+            };
+            
+            // Tambahkan semua field ke formData
+            Object.entries(detailData).forEach(([key, value]) => {
+                formData.append(`details[${index}][${key}]`, String(value));
+            });
+        });
+        
+        try {
+            console.log('Mengirim data:', Object.fromEntries(formData.entries()));
+
+            // Kirim data ke server menggunakan Inertia.js router
+            await router.post(route('purchases.update', initialPurchase.id), formData, {
+                onSuccess: () => {
+                    // Redirect ke halaman daftar pembelian dengan pesan sukses
+                    router.visit(route('purchases.index'), {
+                        onSuccess: () => {
+                            if (typeof window !== 'undefined' && window.toastr) {
+                                window.toastr.success('Pembelian berhasil diperbarui');
+                            } else {
+                                alert('Pembelian berhasil diperbarui');
+                            }
+                        }
+                    });
+                },
+                onError: (errors) => {
+                    console.error('Error updating purchase:', errors);
+                    let errorMessage = 'Terjadi kesalahan saat menyimpan perubahan.';
+                    
+                    if (errors?.message) {
+                        errorMessage = errors.message;
+                    } else if (typeof errors === 'object') {
+                        const errorMessages = Object.values(errors).flat();
+                        if (errorMessages.length > 0) {
+                            errorMessage = errorMessages.join('\n');
+                        }
+                    }
+                    
+                    alert(errorMessage);
+                    setProcessing(false);
+                },
+                onFinish: () => {
+                    setProcessing(false);
+                },
+                preserveScroll: true,
+                forceFormData: true
+            });
+        } catch (error) {
+            console.error('Error in handleSubmit:', error);
+            alert('Terjadi kesalahan saat memproses permintaan. Silakan coba lagi.');
+            setProcessing(false);
+        }
+    };
+
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Edit Purchase" />
-            <Card>
-                <CardHeader>
-                    <CardTitle>Edit Purchase</CardTitle>
-                    <CardDescription>Update purchase information.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {alert && (
-                        <Alert variant={alert.type === 'success' ? undefined : 'destructive'} className="mb-4">
-                            <AlertCircle className="h-5 w-5" />
-                            <AlertTitle>{alert.type === 'success' ? 'Sukses' : 'Gagal'}</AlertTitle>
-                            <AlertDescription>{alert.message}</AlertDescription>
-                        </Alert>
-                    )}
-                    <form onSubmit={submit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <Label htmlFor="no_faktur">No Faktur</Label>
-                                    <Input id="no_faktur" name="no_faktur" value={header.no_faktur} onChange={handleHeaderChange} required />
-                                </div>
-                                <div>
-                                    <Label htmlFor="pbf">Supplier (PBF)</Label>
-                                    <Select
-                                        value={header.supplier_id} // Bind to supplier_id
-                                        onValueChange={val => {
-                                            const selectedSupplier = suppliers.find(s => String(s.id) === val);
-                                            setHeader({ 
-                                                ...header, 
-                                                supplier_id: val,
-                                                pbf: selectedSupplier ? selectedSupplier.company : '' 
-                                            });
-                                        }}
-                                    >
-                                        <SelectTrigger className="w-full bg-gray-900 text-white border-gray-700">
-                                            <SelectValue placeholder="Pilih Supplier" />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-gray-900 text-white">
-                                            {suppliers.map(s => (
-                                                <SelectItem key={s.id} value={String(s.id)}>{s.company}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="tanggal_faktur">Tanggal Faktur</Label>
-                                    <Input id="tanggal_faktur" name="tanggal_faktur" type="date" value={header.tanggal_faktur} onChange={handleHeaderChange} required />
-                                </div>
-                                <div>
-                                    <Label htmlFor="jatuh_tempo">Jatuh Tempo</Label>
-                                    <Input id="jatuh_tempo" name="jatuh_tempo" type="date" value={header.jatuh_tempo} onChange={handleHeaderChange} required />
+            
+            <div className="space-y-6">
+
+                <div className="flex justify-between items-center">
+                    <h1 className="text-2xl font-bold">Edit Purchase</h1>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-6" method="POST">
+                    <input type="hidden" name="_token" value={String(usePage().props.csrf_token || '')} />
+                    <input type="hidden" name="_method" value="PUT" />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Informasi Umum</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="no_faktur">No. Faktur</Label>
+                                <Input
+                                    id="no_faktur"
+                                    name="no_faktur"
+                                    value={header.no_faktur}
+                                    onChange={handleHeaderChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="supplier_id">PBF</Label>
+                                <select
+                                    id="supplier_id"
+                                    name="supplier_id"
+                                    value={header.supplier_id}
+                                    onChange={handleHeaderChange}
+                                    className="w-full bg-background text-foreground"
+                                    required
+                                >
+                                    <option value="">Pilih PBF</option>
+                                    {initialSuppliers.map((supplier) => (
+                                        <option key={supplier.id} value={supplier.id}>
+                                            {supplier.company}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="tanggal_faktur">Tanggal Faktur</Label>
+                                <Input
+                                    type="date"
+                                    id="tanggal_faktur"
+                                    name="tanggal_faktur"
+                                    value={header.tanggal_faktur}
+                                    onChange={handleHeaderChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="jatuh_tempo">Jatuh Tempo</Label>
+                                <Input
+                                    type="date"
+                                    id="jatuh_tempo"
+                                    name="jatuh_tempo"
+                                    value={header.jatuh_tempo}
+                                    onChange={handleHeaderChange}
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Status</Label>
+                                <div className="flex items-center space-x-4">
+                                    <label className="flex items-center">
+                                        <input
+                                            type="radio"
+                                            name="status"
+                                            value="UNPAID"
+                                            checked={status === 'UNPAID'}
+                                            onChange={() => setStatus('UNPAID')}
+                                            className="mr-2"
+                                        />
+                                        Belum Lunas
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input
+                                            type="radio"
+                                            name="status"
+                                            value="PAID"
+                                            checked={status === 'PAID'}
+                                            onChange={() => setStatus('PAID')}
+                                            className="mr-2"
+                                        />
+                                        Lunas
+                                    </label>
                                 </div>
                             </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <Label>Jumlah produk yang dipesan</Label>
-                                    <div className="bg-gray-800 text-white rounded px-3 py-2 font-bold">{jumlahProduk}</div>
-                                </div>
-                                <div>
-                                    <Label>Tanggal Pembayaran & Status</Label>
-                                    <div className="flex gap-2 items-center">
+
+                            {status === 'PAID' && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="tanggal_pembayaran">Tanggal Pembayaran</Label>
                                     <Input
-                                            id="tanggal_pembayaran"
-                                            name="tanggal_pembayaran" // This name attribute might conflict if header also has it.
-                                                                        // The value is controlled by `tanggalPembayaran` state.
-                                            type="date"
-                                            value={tanggalPembayaran}
-                                            onChange={e => setTanggalPembayaran(e.target.value)}
-                                            className="w-1/2"
-                                    />
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${status === 'PAID' ? 'bg-green-700 text-green-200' : 'bg-gray-700 text-gray-300'}`}>{status === 'PAID' ? 'Sudah Dibayar' : 'Belum Dibayar'}</span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label htmlFor="keterangan">Keterangan</Label>
-                                    <Input id="keterangan" name="keterangan" value={header.keterangan} onChange={handleHeaderChange} />
-                                </div>
-                                <div>
-                                    <Label htmlFor="ppn_percentage">PPN (%)</Label>
-                                    <Input 
-                                        id="ppn_percentage" 
-                                        name="ppn_percentage" 
-                                        type="number"
-                                        value={ppnPercentage} 
-                                        onChange={(e) => setPpnPercentage(e.target.value)} 
-                                        min="0" max="100" step="0.01"
-                                        placeholder="e.g. 11"
+                                        type="date"
+                                        id="tanggal_pembayaran"
+                                        name="tanggal_pembayaran"
+                                        value={header.tanggal_pembayaran}
+                                        onChange={handleHeaderChange}
+                                        required={status === 'PAID'}
                                     />
                                 </div>
-                                <div className="space-y-1 mt-1">
-                                    <p className="text-sm flex justify-between">Subtotal: <span className="font-semibold">Rp. {subTotalDisplay.toLocaleString('id-ID')}</span></p>
-                                    <p className="text-sm flex justify-between">PPN ({ppnPercentage || 0}%): <span className="font-semibold">Rp. {ppnAmountDisplay.toLocaleString('id-ID')}</span></p>
-                                    <p className="text-lg flex justify-between text-green-400">Grand Total: <span className="font-bold">Rp. {grandTotalDisplay.toLocaleString('id-ID')}</span></p>
-                                </div>
+                            )}
+
+                            <div className="space-y-2 md:col-span-2">
+                                <Label htmlFor="keterangan">Keterangan</Label>
+                                <textarea
+                                    id="keterangan"
+                                    name="keterangan"
+                                    value={header.keterangan || ''}
+                                    onChange={(e) => 
+                                        setHeader(prev => ({ ...prev, keterangan: e.target.value }))
+                                    }
+                                    className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-blue-500 focus:border-blue-500"
+                                    rows={3}
+                                    placeholder="Masukkan keterangan (opsional)"
+                                />
                             </div>
-                        </div>
-                        <div className="mt-8">
-                            <h3 className="font-semibold mb-2">Detail Produk</h3>
-                            {details.map((detail: DetailItem, idx: number) => (
-                                <div key={detail.id || `new-${idx}`} className="grid grid-cols-1 md:grid-cols-8 gap-2 mb-3 items-end border p-3 rounded-lg relative shadow-sm">
-                                    <div className="md:col-span-2">
-                                        <Label htmlFor={`nama_produk_${idx}`}>Nama Produk (URAIAN)</Label>
-                                        <Input id={`nama_produk_${idx}`} name="nama_produk" value={detail.nama_produk} onChange={e => handleDetailChange(idx, e)} required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor={`jumlah_${idx}`}>QTY (JUMLAH)</Label>
-                                        <Input id={`jumlah_${idx}`} name="jumlah" type="number" value={detail.jumlah} onChange={e => handleDetailChange(idx, e)} required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor={`expired_${idx}`}>ED</Label>
-                                        <Input id={`expired_${idx}`} name="expired" type="date" value={detail.expired} onChange={e => handleDetailChange(idx, e)} required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor={`kemasan_${idx}`}>SATUAN (KMSN)</Label>
-                                        <Input id={`kemasan_${idx}`} name="kemasan" value={detail.kemasan} onChange={e => handleDetailChange(idx, e)} required />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor={`harga_satuan_${idx}`}>HARGA SATUAN</Label>
-                                        <Input id={`harga_satuan_${idx}`} name="harga_satuan" type="number" value={detail.harga_satuan} onChange={e => handleDetailChange(idx, e)} required step="0.01"/>
-                                    </div>
-                                    <div>
-                                        <Label htmlFor={`gross_${idx}`}>GROSS</Label>
-                                        <Input id={`gross_${idx}`} name="gross" type="number" value={detail.gross} readOnly className="bg-gray-100 dark:bg-gray-700"/>
-                                    </div>
-                                    <div>
-                                        <Label htmlFor={`discount_percentage_${idx}`}>DISC (%)</Label>
-                                        <Input id={`discount_percentage_${idx}`} name="discount_percentage" type="number" value={detail.discount_percentage} onChange={e => handleDetailChange(idx, e)} step="0.01" min="0" max="100"/>
-                                    </div>
-                                    <div className="md:col-span-8">
-                                        <Label htmlFor={`sub_total_${idx}`}>SUB TOTAL (Item)</Label>
-                                        <Input id={`sub_total_${idx}`} name="sub_total" type="number" value={detail.sub_total} readOnly className="bg-gray-100 dark:bg-gray-700 font-semibold"/>
-                                    </div>
-                                    {details.length > 1 && (
-                                        <div className="md:col-span-8 flex justify-end pt-1">
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                onClick={() => {
-                                                    if (confirm('Yakin ingin menghapus produk ini?')) removeDetailRow(idx);
-                                                }}
-                                                className="mt-2 flex items-center gap-1"
-                                            >
-                                                <Trash2 size={16} /> Hapus
-                                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <div className="flex justify-between items-center">
+                                <CardTitle>Detail Produk</CardTitle>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={addDetailRow}
+                                >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Tambah Produk
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {details.map((detail, index) => (
+                                    <div key={index} className="border rounded-lg p-4 space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Nama Produk</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        value={detail.nama_produk}
+                                                        onChange={(e) => {
+                                                            const value = e.target.value;
+                                                            const newDetails = [...details];
+                                                            newDetails[index].nama_produk = value;
+                                                            setDetails(newDetails);
+                                                            
+                                                            // Cari produk saat mengetik
+                                                            if (value.length > 1) {
+                                                                searchProducts(value);
+                                                            }
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                handleAddNewProduct(index, detail.nama_produk);
+                                                            }
+                                                        }}
+                                                        onBlur={() => {
+                                                            // Saat input kehilangan fokus, pastikan nilai tersimpan
+                                                            if (detail.nama_produk.trim()) {
+                                                                handleAddNewProduct(index, detail.nama_produk);
+                                                            }
+                                                        }}
+                                                        list={`products-list-${index}`}
+                                                        placeholder="Cari atau tambah obat"
+                                                        className="w-full"
+                                                        required
+                                                    />
+                                                    <datalist id={`products-list-${index}`}>
+                                                        {availableProducts.map((product) => (
+                                                            <option key={product.id} value={product.name}>
+                                                                {product.name}
+                                                            </option>
+                                                        ))}
+                                                    </datalist>
+                                                    {detail.nama_produk && (
+                                                        <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const newDetails = [...details];
+                                                                    newDetails[index].nama_produk = '';
+                                                                    setDetails(newDetails);
+                                                                }}
+                                                                className="text-muted-foreground hover:text-foreground"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="space-y-2">
+                                                <Label>Expired</Label>
+                                                <Input
+                                                    type="date"
+                                                    value={detail.expired}
+                                                    onChange={(e) => {
+                                                        const newDetails = [...details];
+                                                        newDetails[index].expired = e.target.value;
+                                                        setDetails(newDetails);
+                                                    }}
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Jumlah</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="1"
+                                                    value={detail.jumlah}
+                                                    onChange={(e) => {
+                                                        const newDetails = [...details];
+                                                        newDetails[index].jumlah = e.target.value;
+                                                        
+                                                        // Hitung ulang
+                                                        const qty = parseFloat(e.target.value) || 0;
+                                                        const price = parseFloat(newDetails[index].harga_satuan) || 0;
+                                                        const discount = parseFloat(newDetails[index].discount_percentage) || 0;
+                                                        
+                                                        const gross = qty * price;
+                                                        const discountAmount = (gross * discount) / 100;
+                                                        const subTotal = gross - discountAmount;
+                                                        
+                                                        newDetails[index].gross = gross.toString();
+                                                        newDetails[index].sub_total = subTotal.toString();
+                                                        
+                                                        setDetails(newDetails);
+                                                    }}
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Kemasan</Label>
+                                                <select
+                                                    value={detail.kemasan}
+                                                    onChange={(e) => {
+                                                        const newDetails = [...details];
+                                                        newDetails[index].kemasan = e.target.value;
+                                                        setDetails(newDetails);
+                                                    }}
+                                                    className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+                                                    required
+                                                >
+                                                    <option value="">Pilih Kemasan</option>
+                                                    {existingKemasan.map((kemasan, i) => (
+                                                        <option key={i} value={kemasan}>
+                                                            {kemasan}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Harga Satuan</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    value={detail.harga_satuan}
+                                                    onChange={(e) => {
+                                                        const newDetails = [...details];
+                                                        newDetails[index].harga_satuan = e.target.value;
+                                                        
+                                                        // Hitung ulang
+                                                        const qty = parseFloat(newDetails[index].jumlah) || 0;
+                                                        const price = parseFloat(e.target.value) || 0;
+                                                        const discount = parseFloat(newDetails[index].discount_percentage) || 0;
+                                                        
+                                                        const gross = qty * price;
+                                                        const discountAmount = (gross * discount) / 100;
+                                                        const subTotal = gross - discountAmount;
+                                                        
+                                                        newDetails[index].gross = gross.toString();
+                                                        newDetails[index].sub_total = subTotal.toString();
+                                                        
+                                                        setDetails(newDetails);
+                                                    }}
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Diskon (%)</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    value={detail.discount_percentage}
+                                                    onChange={(e) => {
+                                                        const newDetails = [...details];
+                                                        newDetails[index].discount_percentage = e.target.value;
+                                                        
+                                                        // Hitung ulang
+                                                        const qty = parseFloat(newDetails[index].jumlah) || 0;
+                                                        const price = parseFloat(newDetails[index].harga_satuan) || 0;
+                                                        const discount = parseFloat(e.target.value) || 0;
+                                                        
+                                                        const gross = qty * price;
+                                                        const discountAmount = (gross * discount) / 100;
+                                                        const subTotal = gross - discountAmount;
+                                                        
+                                                        newDetails[index].gross = gross.toString();
+                                                        newDetails[index].sub_total = subTotal.toString();
+                                                        
+                                                        setDetails(newDetails);
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Sub Total</Label>
+                                                <Input
+                                                    type="text"
+                                                    value={new Intl.NumberFormat('id-ID', {
+                                                        style: 'currency',
+                                                        currency: 'IDR',
+                                                        minimumFractionDigits: 0,
+                                                    }).format(parseFloat(detail.sub_total) || 0)}
+                                                    readOnly
+                                                    className="font-medium"
+                                                />
+                                            </div>
+
+                                            <div className="flex items-end">
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="icon"
+                                                    onClick={() => removeDetailRow(index)}
+                                                    className="text-destructive"
+                                                    disabled={details.length <= 1}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
-                                    )}
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Ringkasan</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex justify-between">
+                                <span>Total Produk:</span>
+                                <span className="font-medium">{jumlahProduk} item</span>
+                            </div>
+
+                            <div className="flex justify-between">
+                                <span>Subtotal:</span>
+                                <span className="font-medium">
+                                    {new Intl.NumberFormat('id-ID', {
+                                        style: 'currency',
+                                        currency: 'IDR',
+                                        minimumFractionDigits: 0,
+                                    }).format(subTotalDisplay)}
+                                </span>
+                            </div>
+
+                            <div className="flex justify-between">
+                                <div className="flex items-center space-x-2">
+                                    <span>PPN ({ppnPercentage}%):</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        value={ppnPercentage}
+                                        onChange={(e) => setPpnPercentage(e.target.value)}
+                                        className="w-20 h-8"
+                                    />
                                 </div>
-                            ))}
-                            <Button type="button" onClick={addDetailRow} className="mt-2">Tambah Produk</Button>
-                        </div>
-                        <div className="flex items-center justify-end space-x-4 mt-6">
-                            <Link href={route('purchases.index')} className="text-sm text-gray-600 hover:text-gray-900">
-                                Cancel
-                            </Link>
-                            <Button type="submit" disabled={processing} className="bg-green-600 hover:bg-green-700 text-white">
-                                {processing ? 'Saving...' : 'Update'}
-                            </Button>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
+                                <span className="font-medium">
+                                    {new Intl.NumberFormat('id-ID', {
+                                        style: 'currency',
+                                        currency: 'IDR',
+                                        minimumFractionDigits: 0,
+                                    }).format(ppnAmountDisplay)}
+                                </span>
+                            </div>
+
+                            <div className="flex justify-between border-t pt-2">
+                                <span className="font-bold">Total:</span>
+                                <span className="font-bold text-lg">
+                                    {new Intl.NumberFormat('id-ID', {
+                                        style: 'currency',
+                                        currency: 'IDR',
+                                        minimumFractionDigits: 0,
+                                    }).format(grandTotalDisplay)}
+                                </span>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <div className="flex justify-end space-x-4">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => window.history.back()}
+                            disabled={processing}
+                        >
+                            Batal
+                        </Button>
+                        <Button type="submit" disabled={processing}>
+                            {processing ? 'Menyimpan...' : 'Simpan Perubahan'}
+                        </Button>
+                    </div>
+                </form>
+            </div>
         </AppLayout>
     );
 }

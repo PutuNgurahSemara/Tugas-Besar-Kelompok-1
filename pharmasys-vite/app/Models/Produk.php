@@ -14,12 +14,17 @@ class Produk extends Model
 
     protected $table = 'produk'; // Ensure this is 'produks' if following convention, or 'produk' if explicitly set. Assuming 'produk'.
 
+    const STATUS_DRAFT = 'draft';
+    const STATUS_ACTIVE = 'active';
+    const STATUS_INACTIVE = 'inactive';
+
     protected $fillable = [
         'nama', 
         'category_id', 
         'harga', 
         'margin', 
         'image',
+        'status',
     ];
 
     protected $casts = [

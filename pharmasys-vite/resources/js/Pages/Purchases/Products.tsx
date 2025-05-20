@@ -3,7 +3,14 @@ import axios from 'axios';
 import AppLayout from '@/layouts/app-layout';
 import { ProductCard, type ProductCardData } from '@/components/product-card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { PlusCircle, Package, Search as SearchIcon, Filter as FilterIcon, X as ClearIcon, ListPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Added Card components
@@ -91,7 +98,7 @@ export default function Products({ purchaseDetails, filters: initialFilters }: P
     };
     
     // Function to handle registering all unregistered products
-    const handleRegisterAllProducts = () => {
+    const handleRegisterAllProducts = async () => {
         setIsRegistering(true);
         
         // Get all unregistered products
@@ -104,57 +111,64 @@ export default function Products({ purchaseDetails, filters: initialFilters }: P
             return;
         }
         
-        // Process products one by one
+        // Process products one by one using a for...of loop instead of recursion
         let processed = 0;
         let failed = 0;
         
-        const processNextProduct = (index: number) => {
-            if (index >= unregisteredProducts.length) {
-                // All products processed
-                setIsRegistering(false);
-                setRegisterAllDialogOpen(false);
-                alert(`${processed} produk berhasil didaftarkan! ${failed} produk gagal didaftarkan.`);
-                window.location.reload();
-                return;
-            }
-            
-            const product = unregisteredProducts[index];
-            
-            // Use the produk.store route which should already exist
-            router.post(route('produk.store'), {
-                // Use more fields from the product to ensure we have all required data
-                nama: product.nama_produk,
-                harga: product.harga_satuan,
-                margin: defaultMargin, // Use default margin from settings
-                quantity: product.jumlah, // The backend expects 'quantity' not 'stok'
-                category_id: product.kategori_produk ? product.kategori_produk : null,
-                expired_at: product.expired, // Include expiry date
-                purchase_detail_id: product.id,
-                is_from_warehouse: true,
-                supplier: product.supplier
-            }, {
-                preserveScroll: true,
-                onSuccess: (response) => {
-                    console.log('Product registered successfully:', product.nama_produk);
-                    processed++;
-                    // Process next product with a small delay to prevent overwhelming the server
-                    setTimeout(() => {
-                        processNextProduct(index + 1);
-                    }, 500); // 500ms delay between requests
-                },
-                onError: (errors) => {
-                    console.error('Failed to register product:', product.nama_produk, errors);
-                    failed++;
-                    // Continue with next product even if this one failed, with a small delay
-                    setTimeout(() => {
-                        processNextProduct(index + 1);
-                    }, 500); // 500ms delay between requests
+        for (const product of unregisteredProducts) {
+            try {
+                // Create form data
+                const formData = new FormData();
+                formData.append('nama', product.nama_produk);
+                formData.append('harga', product.harga_satuan.toString());
+                formData.append('margin', defaultMargin.toString());
+                formData.append('quantity', product.jumlah.toString());
+                if (product.kategori_produk) {
+                    formData.append('category_id', product.kategori_produk);
                 }
-            });
-        };
+                if (product.expired) {
+                    formData.append('expired_at', product.expired);
+                }
+                formData.append('purchase_detail_id', product.id.toString());
+                formData.append('is_from_warehouse', 'true');
+                formData.append('supplier', product.supplier || '');
+                
+                // Use axios directly instead of Inertia's router to avoid scroll issues
+                await axios.post(route('produk.store'), formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-Inertia': 'true'
+                    }
+                });
+                
+                processed++;
+                console.log('Product registered successfully:', product.nama_produk);
+                
+                // Small delay between requests to prevent overwhelming the server
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+            } catch (error) {
+                console.error('Failed to register product:', product.nama_produk, error);
+                failed++;
+                // Continue with next product even if this one failed
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
         
-        // Start processing products
-        processNextProduct(0);
+        // Update UI after all requests are done
+        setIsRegistering(false);
+        setRegisterAllDialogOpen(false);
+        
+        if (processed > 0) {
+            // Show summary first
+            alert(`${processed} produk berhasil didaftarkan! ${failed} produk gagal didaftarkan.`);
+            
+            // Then do a full page reload to ensure all data is fresh
+            window.location.reload();
+        } else {
+            alert('Tidak ada produk yang berhasil didaftarkan. Silakan coba lagi.');
+        }
     };
 
     return (

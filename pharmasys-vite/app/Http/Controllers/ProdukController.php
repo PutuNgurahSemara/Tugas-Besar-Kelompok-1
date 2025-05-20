@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Produk;
+use Illuminate\Support\Facades\Log;
 use App\Models\Category;
 use App\Models\Purchase;
 use App\Models\PurchaseDetail;
 use App\Models\SaleItem;
 use App\Models\Setting; // Added Setting model
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
@@ -26,21 +28,46 @@ class ProdukController extends Controller
         $perPage = $filters['perPage'] ?? 10;
         $sortPrice = $filters['sort_price'] ?? null; // 'asc' or 'desc'
 
-        // Get all products with their categories and purchase details
+        // Debug log untuk memeriksa parameter request
+        Log::info('Memuat daftar produk', [
+            'search' => $search,
+            'perPage' => $perPage,
+            'sort_price' => $sortPrice
+        ]);
+
+        // Get all active products with their categories and purchase details
         $produkQuery = Produk::with(['category', 'purchaseDetails'])
-                        ->select('produk.*') // Ensure we select all columns from produk table
-                        ->leftJoin('purchase_details', 'produk.id', '=', 'purchase_details.produk_id')
-                        ->groupBy('produk.id') 
-                        // Filter for products with total stock > 0 for the main "All Products" view
-                        ->havingRaw('COALESCE(SUM(purchase_details.jumlah), 0) > 0') 
+                        ->select('produk.*')
+                        ->where('produk.status', 'active') // Hanya tampilkan produk aktif
                         ->when($search, function ($query, $search) {
                             return $query->where('produk.nama', 'like', '%'.$search.'%');
-                        });
-
+                        })
+                        ->addSelect([
+                            // Hitung total stok dari semua batch
+                            'total_stock' => function($query) {
+                                $query->selectRaw('COALESCE(SUM(jumlah), 0)')
+                                    ->from('purchase_details')
+                                    ->whereColumn('produk_id', 'produk.id')
+                                    ->where('jumlah', '>', 0); // Hanya hitung stok positif
+                            },
+                            // Hitung jumlah batch yang memiliki stok
+                            'batch_count' => function($query) {
+                                $query->selectRaw('COUNT(*)')
+                                    ->from('purchase_details')
+                                    ->whereColumn('produk_id', 'produk.id')
+                                    ->where('jumlah', '>', 0); // Hanya hitung batch dengan stok
+                            }
+                        ]);
+                        
+        // Tambahkan log untuk mengecek jumlah produk yang ditemukan
+        $produkCount = (clone $produkQuery)->count();
+        Log::info('Jumlah produk yang akan ditampilkan: ' . $produkCount);
+        
+        // Urutkan berdasarkan nama atau harga
         if ($sortPrice && in_array($sortPrice, ['asc', 'desc'])) {
-            $produkQuery->orderBy('produk.harga', $sortPrice); // Specify table for harga
+            $produkQuery->orderBy('produk.harga', $sortPrice);
         } else {
-            $produkQuery->orderBy('produk.created_at', 'desc'); // Default sort by latest
+            $produkQuery->orderBy('produk.nama');
         }
         
         $produk = $produkQuery->paginate((int)$perPage)->withQueryString();
@@ -78,6 +105,59 @@ class ProdukController extends Controller
             'links' => [
                 'outstock' => route('produk.outstock'),
                 'expired' => route('produk.expired'),
+                'drafts' => route('produk.drafts'),
+            ]
+        ]);
+    }
+
+    /**
+     * List all draft products that need to be reviewed and activated
+     */
+    public function drafts(Request $request)
+    {
+        $filters = $request->only(['search', 'perPage']);
+        $search = $filters['search'] ?? null;
+        $perPage = $filters['perPage'] ?? 10;
+
+        // Get draft products with their purchase details
+        $produkQuery = Produk::with(['category', 'purchaseDetails'])
+                        ->select('produk.*')
+                        ->leftJoin('purchase_details', 'produk.id', '=', 'purchase_details.produk_id')
+                        ->where('produk.status', Produk::STATUS_DRAFT)
+                        ->groupBy('produk.id')
+                        ->when($search, function ($query, $search) {
+                            return $query->where('produk.nama', 'like', '%'.$search.'%');
+                        })
+                        ->orderBy('produk.created_at', 'desc');
+
+        $produk = $produkQuery->paginate((int)$perPage)->withQueryString();
+
+        // Transform products to include stock information
+        $produk->getCollection()->transform(function ($item) {
+            $item->load('purchaseDetails');
+            $totalStock = $item->purchaseDetails->sum('jumlah');
+            
+            $earliestExpiry = $item->purchaseDetails()
+                ->where('jumlah', '>', 0)
+                ->whereNotNull('expired')
+                ->orderBy('expired')
+                ->first();
+                
+            $item->total_stock = $totalStock;
+            $item->earliest_expiry = $earliestExpiry ? $earliestExpiry->expired : null;
+            
+            return $item;
+        });
+
+        return Inertia::render('Produk/Drafts', [
+            'produk' => $produk,
+            'filters' => [
+                'search' => $search,
+                'perPage' => (int)$perPage,
+            ],
+            'pageTitle' => 'Draft Products',
+            'links' => [
+                'index' => route('produk.index'),
             ]
         ]);
     }
@@ -110,15 +190,18 @@ class ProdukController extends Controller
             ];
         });
         
+        // Get all products and create a mapping of product names to their data
         $existingProductsData = Produk::select('id', 'nama', 'category_id', 'margin', 'image')
                                     ->get()
                                     ->mapWithKeys(function ($produk) {
-                                        return [$produk->nama => [
-                                            'id' => $produk->id,
-                                            'category_id' => $produk->category_id,
-                                            'margin' => $produk->margin,
-                                            'image' => $produk->image,
-                                        ]];
+                                        return [
+                                            $produk->nama => [
+                                                'id' => $produk->id,
+                                                'category_id' => $produk->category_id,
+                                                'margin' => $produk->margin,
+                                                'image' => $produk->image,
+                                            ]
+                                        ];
                                     })
                                     ->toArray();
 
@@ -173,32 +256,64 @@ class ProdukController extends Controller
         $sourcePurchaseDetail = PurchaseDetail::findOrFail($validated['purchase_detail_id']);
         
         // Validate that the requested quantity doesn't exceed available quantity in the source purchase detail
-        if ($validated['quantity'] > $sourcePurchaseDetail->jumlah) {
-            throw ValidationException::withMessages([
-                'quantity' => 'Jumlah melebihi stok pembelian yang tersedia. Maksimum yang diizinkan: ' . $sourcePurchaseDetail->jumlah,
-            ]);
-        }
+        Log::info('Memeriksa ketersediaan stok', [
+            'requested_quantity' => $validated['quantity'],
+            'available_quantity' => $sourcePurchaseDetail->jumlah,
+            'product_name' => $sourcePurchaseDetail->nama_produk,
+            'purchase_detail_id' => $sourcePurchaseDetail->id
+        ]);
         
+        if ($validated['quantity'] > $sourcePurchaseDetail->jumlah) {
+            $errorMessage = 'Jumlah melebihi stok pembelian yang tersedia. Maksimum yang diizinkan: ' . $sourcePurchaseDetail->jumlah;
+            Log::error($errorMessage, [
+                'requested' => $validated['quantity'],
+                'available' => $sourcePurchaseDetail->jumlah,
+                'product' => $sourcePurchaseDetail->nama_produk
+            ]);
+            throw ValidationException::withMessages([
+                'quantity' => $errorMessage,
+            ]);
+        }      
         $finalProductName = !empty($validated['custom_nama']) ? $validated['custom_nama'] : $sourcePurchaseDetail->nama_produk;
 
         DB::beginTransaction();
         try {
+            
+            Log::info('Mencari produk dengan nama: ' . $finalProductName);
             $produk = Produk::where('nama', $finalProductName)->first();
             $isNewProduct = !$produk;
+            
+            if ($isNewProduct) {
+                Log::info('Produk baru akan dibuat: ' . $finalProductName);
+            } else {
+                Log::info('Produk sudah ada, akan direstock: ' . $finalProductName . ' (ID: ' . $produk->id . ')');
+            }
 
             if ($isNewProduct) {
                 // Creating a new product
-                $costPrice = $sourcePurchaseDetail->harga_satuan;
-                $marginPercentage = $validated['margin'] ?? 0;
-                $sellingPrice = round($costPrice * (1 + $marginPercentage / 100));
+                $costPrice = (float) $sourcePurchaseDetail->harga_satuan;
+                $marginPercentage = (float) ($validated['margin'] ?? 0);
+                $sellingPrice = (float) round($costPrice * (1 + $marginPercentage / 100), 2);
 
+                Log::info('Menghitung harga jual', [
+                    'harga_beli' => $costPrice,
+                    'margin' => $marginPercentage . '%',
+                    'harga_jual' => $sellingPrice
+                ]);
+
+                // Pastikan status selalu aktif untuk produk baru yang dibuat dari gudang
                 $productDataForCreate = [
                     'nama' => $finalProductName,
                     'harga' => $sellingPrice,
                     'margin' => $marginPercentage,
                     'category_id' => $validated['category_id'] ?? null,
                     'image' => null,
+                    'status' => 'active', // Explicitly set status to active
                 ];
+                
+                Log::info('Membuat produk baru dengan status: ' . $productDataForCreate['status'], $productDataForCreate);
+                
+                Log::debug('Data produk yang akan dibuat', $productDataForCreate);
                 if ($request->hasFile('image')) {
                     $productDataForCreate['image'] = $request->file('image')->store('produk_images', 'public');
                 }
@@ -223,14 +338,23 @@ class ProdukController extends Controller
             
             // Create a new PurchaseDetail record for this batch, linked to the product
             $newProductBatch = new PurchaseDetail();
-            $newProductBatch->purchase_id = $sourcePurchaseDetail->purchase_id;
-            $newProductBatch->produk_id = $produk->id;
+            $newProductBatch->purchase_id = (int) $sourcePurchaseDetail->purchase_id;
+            $newProductBatch->produk_id = (int) $produk->id;
             $newProductBatch->nama_produk = $produk->nama; // Use the product's name
             $newProductBatch->expired = $sourcePurchaseDetail->expired;
-            $newProductBatch->jumlah = $batchQuantity;
+            $newProductBatch->jumlah = (int) $batchQuantity;
             $newProductBatch->kemasan = $sourcePurchaseDetail->kemasan;
-            $newProductBatch->harga_satuan = $sourcePurchaseDetail->harga_satuan; // Cost for this batch
-            $newProductBatch->total = $sourcePurchaseDetail->harga_satuan * $batchQuantity; // Total cost for this batch
+            $newProductBatch->harga_satuan = (float) $sourcePurchaseDetail->harga_satuan; // Cost for this batch
+            $newProductBatch->total = (float) ($sourcePurchaseDetail->harga_satuan * $batchQuantity); // Total cost for this batch
+            
+            Log::debug('Menyimpan detail pembelian baru', [
+                'produk_id' => $newProductBatch->produk_id,
+                'nama_produk' => $newProductBatch->nama_produk,
+                'jumlah' => $newProductBatch->jumlah,
+                'harga_satuan' => $newProductBatch->harga_satuan,
+                'total' => $newProductBatch->total
+            ]);
+            
             $newProductBatch->save();
 
             DB::commit();
@@ -242,21 +366,38 @@ class ProdukController extends Controller
                 $batchQuantity,
                 $newProductBatch->expired ? 'Tanggal kadaluwarsa: ' . Carbon::parse($newProductBatch->expired)->format('d/m/Y') : 'Tidak ada tanggal kadaluwarsa'
             );
+            
+            Log::info('Produk berhasil diproses', [
+                'produk_id' => $produk->id,
+                'produk_nama' => $produk->nama,
+                'stok_ditambahkan' => $batchQuantity,
+                'is_new' => $isNewProduct
+            ]);
 
             return redirect()->route('produk.index')->with('success', $successMessage);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error in ProdukController@store: ' . $e->getMessage() . ' Stack: ' . $e->getTraceAsString());
-            return redirect()->back()->withInput()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            $errorContext = [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all(),
+                'final_product_name' => $finalProductName ?? 'not set',
+                'is_new_product' => $isNewProduct ?? 'not set',
+                'source_purchase_detail' => isset($sourcePurchaseDetail) ? [
+                    'id' => $sourcePurchaseDetail->id,
+                    'product_name' => $sourcePurchaseDetail->nama_produk,
+                    'quantity' => $sourcePurchaseDetail->jumlah,
+                    'purchase_id' => $sourcePurchaseDetail->purchase_id
+                ] : 'not set'
+            ];
+            
+            Log::error('Error in ProdukController@store: ' . $e->getMessage(), $errorContext);
+            
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
+                        ->with('error_details', json_encode($errorContext, JSON_PRETTY_PRINT));
         }
-        $successMessage = sprintf(
-            'Produk %s berhasil dibuat dengan stok awal %d. %s',
-            $produk->nama,
-            $batchQuantity, // Use batchQuantity for the message
-            $newDetail->expired ? 'Tanggal kadaluwarsa: ' . Carbon::parse($newDetail->expired)->format('d/m/Y') : 'Tidak ada tanggal kadaluwarsa'
-        );
-
-        return redirect()->route('produk.index')->with('success', $successMessage);
     }
 
     public function edit(Produk $produk)
@@ -667,6 +808,31 @@ class ProdukController extends Controller
                 'all' => route('produk.index'),
                 'outstock' => route('produk.outstock'),
             ]
+        ]);
+    }
+    
+    /**
+     * Activate a draft product
+     *
+     * @param  \App\Models\Produk  $produk
+     * @return \Illuminate\Http\Response
+     */
+    public function activate(Produk $produk)
+    {
+        // Check if the product is in draft status
+        if ($produk->status !== Produk::STATUS_DRAFT) {
+            return response()->json([
+                'message' => 'Only draft products can be activated',
+            ], 422);
+        }
+        
+        // Update the status to active
+        $produk->status = Produk::STATUS_ACTIVE;
+        $produk->save();
+        
+        return response()->json([
+            'message' => 'Product activated successfully',
+            'data' => $produk->fresh(),
         ]);
     }
 }

@@ -6,6 +6,7 @@ use App\Models\Purchase;
 use App\Models\Category; // Untuk dropdown
 use App\Models\Supplier; // Untuk dropdown
 use App\Models\Produk; // Tambahkan model Produk
+use App\Models\Setting; // Tambahkan model Setting
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str; // Tambahkan ini untuk menggunakan helper Str
 use Google\Cloud\Vision\V1\ImageAnnotatorClient;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -150,6 +152,7 @@ class PurchaseController extends Controller
                     
                     $produk->harga = $detailItem['harga_satuan'] * $marginMultiplier;
                     $produk->margin = $defaultMargin;
+                    $produk->status = \App\Models\Produk::STATUS_DRAFT;
                     $produk->save();
                 }
 
@@ -269,9 +272,35 @@ class PurchaseController extends Controller
         try {
             $purchase->update($updateData);
 
-            // Hapus detail lama, insert ulang
+            // 1. Hapus detail lama
+            // Tidak perlu mengembalikan stok karena stok dihitung dari purchaseDetails
             $purchase->details()->delete();
+
+            // 2. Buat detail baru
             foreach ($validated['details'] as $detailItem) {
+                // Cari atau buat kategori berdasarkan kemasan
+                $category = Category::firstOrCreate(
+                    ['name' => $detailItem['kemasan']],
+                    ['slug' => Str::slug($detailItem['kemasan'])]
+                );
+
+                // Cari produk berdasarkan nama dan kategori
+                $produk = Produk::where('nama', $detailItem['nama_produk'])
+                    ->where('category_id', $category->id)
+                    ->first();
+
+
+                // Jika produk tidak ditemukan, buat baru
+                if (!$produk) {
+                    $produk = Produk::create([
+                        'nama' => $detailItem['nama_produk'],
+                        'category_id' => $category->id,
+                        'harga' => $detailItem['harga_satuan']
+                    ]);
+                }
+
+
+                // Buat detail pembelian
                 $purchase->details()->create([
                     'nama_produk' => $detailItem['nama_produk'],
                     'expired' => $detailItem['expired'],
@@ -281,8 +310,8 @@ class PurchaseController extends Controller
                     'gross_amount' => $detailItem['gross'],
                     'discount_percentage' => $detailItem['discount_percentage'] ?? 0,
                     'total' => $detailItem['total'],
-                     // 'id' from $detailItem is not used here as we delete and recreate.
-                     // If you were to update existing details, you'd use $detailItem['id'].
+                    'produk_id' => $produk->id,
+                    'category_id' => $category->id
                 ]);
             }
             DB::commit();
@@ -1489,8 +1518,10 @@ class PurchaseController extends Controller
 
     public function purchasedProducts()
     {
-        // Get all products with their categories
-        $existingProducts = Produk::with('category')->get();
+        // Get all active products with their categories
+        $existingProducts = Produk::with('category')
+            ->where('status', \App\Models\Produk::STATUS_ACTIVE)
+            ->get();
         $existingProdukMap = $existingProducts->keyBy('id'); // Ubah key menjadi ID
 
         // Get all purchase details with product information

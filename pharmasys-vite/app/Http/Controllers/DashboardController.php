@@ -19,7 +19,12 @@ class DashboardController extends Controller
         // --- AWAL LOGIKA PENGAMBILAN DATA ---
         $todaySales = Sale::whereDate('created_at', Carbon::today())->sum('total_price') ?? 0;
         $totalCategories = Category::count();
-        $expiredMedicines = Produk::where('expired_at', '<', Carbon::now())->count(); // Gunakan kolom expired_at
+        
+        // Hitung obat yang sudah kadaluarsa dari purchase_details
+        $expiredMedicines = \App\Models\PurchaseDetail::where('expired', '<', Carbon::now())
+            ->where('jumlah', '>', 0) // Hanya yang masih ada stok
+            ->count();
+            
         $systemUsers = User::count();
 
         $recentSales = SaleItem::with(['produk'])
