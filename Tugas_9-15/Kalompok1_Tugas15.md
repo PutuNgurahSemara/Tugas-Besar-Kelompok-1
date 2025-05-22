@@ -23,6 +23,8 @@
  ![alt text](IMG/Readme.png)
  ### 2. Pembuatan API Docs 
 ![alt text](IMG/image.png)
+ ### 3. Pembuatan PPT presentasi final
+ [PPT Canva](https://www.canva.com/design/DAGmj7xEdNY/VK8MePv5GvIuwf2pF6DXQA/edit)
 ## Challenges & Solutions
 - **Challenge 1**: Kurangnya partisipasi anggota lain dalam pengerjaan proyek
 - **Solution**: Mengerjakan sebisa mungkin dengan sumber daya manusia yang ada untuk menyelesaikan projek.
