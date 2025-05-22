@@ -22,7 +22,7 @@
  ### 1. Memperbarui README yang ada di Github menjadi lebih lengkap dari segi daftar fitur, tutorial pemasangan, dan struktur sistem
  ![alt text](IMG/Readme.png)
  ### 2. Pembuatan API Docs 
-
+![alt text](IMG/image.png)
 ## Challenges & Solutions
 - **Challenge 1**: Kurangnya partisipasi anggota lain dalam pengerjaan proyek
 - **Solution**: Mengerjakan sebisa mungkin dengan sumber daya manusia yang ada untuk menyelesaikan projek.
