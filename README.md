@@ -1,14 +1,61 @@
 # Pharmasys-Vite
 
-Pharmasys-Vite adalah aplikasi web yang dikembangkan menggunakan framework Laravel untuk backend dan React dengan Vite untuk frontend. Aplikasi ini dirancang untuk [Jelaskan tujuan utama aplikasi di sini, misalnya: manajemen apotek, sistem informasi farmasi, dll.].
+Pharmasys-Vite adalah aplikasi web yang dikembangkan menggunakan framework Laravel untuk backend dan React dengan Vite untuk frontend. Aplikasi ini dirancang untuk membantu sebuah apotek dalam mengelola barang keluar dan masuk serta melakukan penjualan.
+Terdapat 2 aktor dalam sistem ini yaitu Admin dan Kasir yang mana admin memiliki semua akses dari sistem dan kasir tidak. 
 
 ## Fitur Utama
+  - ### Sistem autentikasi pengguna (login, register, reset password)
+         Manajemen peran (roles) dengan permission-based access control
+         Manajemen izin (permissions) untuk mengatur akses ke berbagai fitur sistem
+         Pengaturan profil pengguna
+  - ### Dashboard Interaktif
+         Tampilan penjualan harian
+         Statistik jumlah kategori produk
+         Monitoring obat kadaluarsa
+         Informasi jumlah pengguna sistem
+         Daftar penjualan terbaru
+         Grafik penjualan berdasarkan kategori
+   - ### Manajemen Persediaan/Inventori
+         Pengelolaan produk obat (tambah, edit, hapus)
+         Pengelolaan kategori produk
+         Pengelolaan obat kadaluarsa
+         Monitoring persediaan (out of stock)
+         Status produk (draft, aktif, tidak aktif)
+         Pengelolaan margin harga produk
+   - ### Manajemen Pembelian/Pengadaan
+         Pencatatan faktur pembelian
+         Pengelolaan rincian pembelian
+         Pengelolaan jatuh tempo pembayaran
+         Pengelolaan pemasok/supplier
+         Import data pembelian dari Excel
+         Import gambar terkait pembelian
+         Fitur unduh template pembelian
+   - ### Manajemen Penjualan
+         Pencatatan transaksi penjualan
+         Fitur keranjang belanja (shopping cart)
+         Perhitungan total harga otomatis
+         Manajemen metode pembayaran
+         Rincian item penjualan
+   - ### Sistem Laporan dan Ekspor Data
+         Laporan penjualan (harian, bulanan, tahunan)
+         Laporan pembelian
+         Ekspor laporan dalam format Excel
+         Ekspor laporan dalam format PDF
+   - ### Notifikasi
 
-* [Sebutkan fitur-fitur utama aplikasi, contoh:]
-    * Manajemen Pengguna (Autentikasi, Profil, Pengaturan Kata Sandi)
-    * Dashboard Interaktif
-    * [Tambahkan fitur spesifik lainnya yang relevan dengan "pharmasys"]
+         Pengelolaan notifikasi sistem
+         Tampilan notifikasi untuk pengguna
+   - ### Pengaturan Sistem
 
+         Konfigurasi aplikasi
+         Pengaturan tampilan aplikasi
+   - ### Fitur Tambahan
+
+         Pengelolaan PBF (Pedagang Besar Farmasi)
+         Perhitungan PPN otomatis dalam transaksi pembelian
+         Soft delete untuk data penting (tidak benar-benar dihapus dari database)
+         UI modern dengan React dan Tailwind CSS
+         Manajemen gambar produk
 ## Teknologi yang Digunakan
 
 ### Backend
