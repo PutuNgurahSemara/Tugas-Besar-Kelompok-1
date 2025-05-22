@@ -19,7 +19,8 @@
 
 
 ## Accomplished Tasks
- ### 1. Memperbarui README yang ada di Github menjadi lebih lengkap dari segi daftar fitur, tutorial pemasangan, dan struktur sistem 
+ ### 1. Memperbarui README yang ada di Github menjadi lebih lengkap dari segi daftar fitur, tutorial pemasangan, dan struktur sistem
+ ![alt text](IMG/Readme.png)
  ### 2. Pembuatan API Docs 
 
 ## Challenges & Solutions
