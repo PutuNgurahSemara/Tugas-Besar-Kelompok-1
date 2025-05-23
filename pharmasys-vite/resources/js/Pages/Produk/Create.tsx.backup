@@ -127,7 +127,9 @@ export default function ProdukCreate() {
     
     // State untuk UI
     const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
-    const [existingImageDisplay, setExistingImageDisplay] = useState<string | null>(initialProductImage || null);
+    const [existingImageDisplay, setExistingImageDisplay] = useState<string | null>(
+        initialProductImage ? `/storage/${initialProductImage}` : null
+    );
     const [useCustomName, setUseCustomName] = useState<boolean>(!initialProductName);
     const [selectedPurchaseDetail, setSelectedPurchaseDetail] = useState<PurchaseDetail | null>(null);
     const [maxQuantity, setMaxQuantity] = useState(0);
@@ -231,58 +233,50 @@ export default function ProdukCreate() {
         }
     }, [selectedPurchaseDetail, existingProductsData, initialProductName, initialCategoryId, initialProductImage, initialMargin, defaultProfitMargin]);
 
-    // Fungsi untuk validasi form
-    const validateForm = (): boolean => {
-        const newErrors: Record<string, string> = {};
-
+    // Handle submit form
+    const submit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log('Form submitted', { data, selectedPurchaseDetail });
+        
+        // Validasi form
         if (!data.purchase_detail_id) {
-            newErrors.purchase_detail_id = 'Pilih produk sumber terlebih dahulu';
+            console.error('Error: Produk sumber belum dipilih');
+            window.toastr?.error('Pilih produk sumber terlebih dahulu');
+            return;
         }
 
         if (useCustomName && !data.custom_nama?.trim()) {
-            newErrors.custom_nama = 'Nama produk kustom tidak boleh kosong';
+            window.toastr?.error('Nama produk kustom tidak boleh kosong');
+            return;
         }
 
         if (!selectedPurchaseDetail) {
-            newErrors.purchase_detail = 'Detail pembelian tidak valid';
-        } else {
-            if (!data.quantity || data.quantity <= 0) {
-                newErrors.quantity = 'Jumlah harus lebih dari 0';
-            } else if (data.quantity > selectedPurchaseDetail.available_quantity) {
-                newErrors.quantity = `Jumlah tidak boleh melebihi ${selectedPurchaseDetail.available_quantity}`;
-            }
+            window.toastr?.error('Detail pembelian tidak valid');
+            return;
         }
 
-        if (data.margin && (isNaN(parseFloat(data.margin)) || parseFloat(data.margin) < 0)) {
-            newErrors.margin = 'Margin harus berupa angka positif';
+        if (data.quantity <= 0) {
+            window.toastr?.error('Jumlah harus lebih dari 0');
+            return;
         }
 
-        setFormErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    // Handle submit form yang sudah diperbaiki
-    const submit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        if (!validateForm()) {
-            // Tampilkan pesan error untuk setiap field yang tidak valid
-            Object.entries(formErrors).forEach(([field, message]) => {
-                window.toastr?.error(message);
-            });
+        if (data.quantity > selectedPurchaseDetail.available_quantity) {
+            window.toastr?.error(`Jumlah tidak boleh melebihi ${selectedPurchaseDetail.available_quantity}`);
             return;
         }
 
         setIsSubmitting(true);
         
         try {
+            // Siapkan data yang akan dikirim
             const formData = new FormData();
-            const productName = useCustomName && data.custom_nama ? data.custom_nama : data.nama;
             
-            // Data utama
-            formData.append('_method', 'POST');
+            // Data yang diperlukan oleh controller
             formData.append('purchase_detail_id', data.purchase_detail_id);
             formData.append('quantity', String(data.quantity));
+            
+            // Nama produk (gunakan custom nama jika diisi)
+            const productName = useCustomName && data.custom_nama ? data.custom_nama : data.nama;
             formData.append('nama', productName);
             
             // Data opsional
@@ -294,52 +288,49 @@ export default function ProdukCreate() {
                 formData.append('margin', data.margin);
             }
             
-            // Handle gambar
+            // Tambahkan gambar jika ada
             if (data.image && data.image instanceof File) {
                 formData.append('image', data.image);
             }
 
-            // Log data yang akan dikirim (hanya untuk development)
-            if (process.env.NODE_ENV === 'development') {
-                const formDataObj: Record<string, any> = {};
-                formData.forEach((value, key) => {
-                    formDataObj[key] = value;
-                });
-                console.log('Mengirim data ke server:', formDataObj);
-            }
-
-            // Kirim data ke server
-            await router.post(route('produk.store'), formData, {
-                forceFormData: true,
-                onSuccess: () => {
-                    window.toastr?.success('Produk berhasil ditambahkan');
-                    // Trigger event untuk memuat ulang data gudang
-                    window.dispatchEvent(new Event('warehouse:updated'));
-                    // Redirect ke halaman daftar produk
-                    router.visit(route('produk.index'));
-                },
-                onError: (errors) => {
-                    console.error('Error from server:', errors);
-                    let errorMessage = 'Gagal menambahkan produk. Silakan coba lagi.';
-                    
-                    if (typeof errors === 'string') {
-                        errorMessage = errors;
-                    } else if (errors && typeof errors === 'object') {
-                        // Ambil pesan error pertama yang tersedia
-                        const firstError = Object.values(errors)[0];
-                        if (Array.isArray(firstError)) {
-                            errorMessage = firstError[0] || errorMessage;
-                        } else if (typeof firstError === 'string') {
-                            errorMessage = firstError;
-                        }
-                    }
-                    
-                    window.toastr?.error(errorMessage);
-                }
+            console.log('Mengirim data ke server:', {
+                purchase_detail_id: data.purchase_detail_id,
+                quantity: data.quantity,
+                nama: productName,
+                category_id: data.category_id,
+                margin: data.margin,
+                hasImage: !!data.image
             });
+
+            // Gunakan router.post dari Inertia
+            try {
+                await router.post(route('produk.store'), formData, {
+                    forceFormData: true,
+                    onProgress: (progress) => {
+                        console.log('Upload progress:', progress);
+                    },
+                    onSuccess: () => {
+                        window.toastr?.success('Produk berhasil ditambahkan');
+                        // Trigger event untuk memuat ulang data gudang
+                        window.dispatchEvent(new Event('warehouse:updated'));
+                        // Redirect ke halaman daftar produk
+                        router.visit(route('produk.index'));
+                    },
+                    onError: (errors) => {
+                        console.error('Error from server:', errors);
+                        const errorMessage = typeof errors === 'string' 
+                            ? errors 
+                            : 'Gagal menambahkan produk. Silakan coba lagi.';
+                        window.toastr?.error(errorMessage);
+                    }
+                });
+            } catch (error) {
+                console.error('Error in form submission:', error);
+                window.toastr?.error('Terjadi kesalahan saat mengirim formulir');
+            }
         } catch (error) {
-            console.error('Error in form submission:', error);
-            window.toastr?.error('Terjadi kesalahan saat mengirim formulir');
+            console.error('Error in form processing:', error);
+            window.toastr?.error('Terjadi kesalahan saat memproses formulir');
         } finally {
             setIsSubmitting(false);
         }
@@ -466,30 +457,55 @@ export default function ProdukCreate() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Tambah Produk Baru" />
-            <div className="container mx-auto py-6">
-                <div className="flex items-center justify-between mb-6">
-                    <h1 className="text-2xl font-bold">Tambah Produk Baru</h1>
-                    <Link
-                        href={route('produk.index')}
-                        className="inline-flex items-center px-4 py-2 bg-background border border-border rounded-md font-semibold text-xs text-foreground uppercase tracking-widest shadow-sm hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 transition"
-                    >
-                        Kembali ke Daftar Produk
-                    </Link>
-                </div>
 
-                <div className="bg-card text-card-foreground rounded-lg shadow overflow-hidden">
-                    <div className="p-6 bg-background">
-                        {availablePurchaseDetails.length === 0 ? (
-                            <Alert variant="destructive">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>Error</AlertTitle>
-                                <AlertDescription>
-                                    Tidak ada data pembelian yang tersedia. Silakan tambahkan data pembelian terlebih dahulu.
-                                </AlertDescription>
-                            </Alert>
-                        ) : (
-                            <form onSubmit={submit} className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        // Hitung ringkasan informasi
+    const itemsAlreadyProductCount = availablePurchaseDetails.filter(
+        (detail: PurchaseDetail) => Object.values(existingProductsData).some(
+            (p: any) => p.nama_produk === detail.nama_produk
+        )
+    ).length;
+        
+    const totalSourceItems = availablePurchaseDetails.length;
+        
+    let summaryMessage = '';
+    if (totalSourceItems > 0) {
+        if (itemsAlreadyProductCount === totalSourceItems) {
+            summaryMessage = "Semua item sumber yang tersedia sudah terdaftar sebagai produk.";
+        } else if (itemsAlreadyProductCount > 0) {
+            summaryMessage = `${itemsAlreadyProductCount} dari ${totalSourceItems} item sumber sudah terdaftar sebagai produk.`;
+        } else {
+            summaryMessage = "Tidak ada item sumber yang cocok dengan produk terdaftar. Produk baru akan dibuat.";
+        }
+    }
+}
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Tambah Produk Baru" />
+        <div className="container mx-auto py-6">
+            <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-bold">Tambah Produk Baru</h1>
+                <Link
+                    href={route('produk.index')}
+                    className="inline-flex items-center px-4 py-2 bg-background border border-border rounded-md font-semibold text-xs text-foreground uppercase tracking-widest shadow-sm hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 transition"
+                >
+                    Kembali ke Daftar Produk
+                </Link>
+            </div>
+
+            <div className="bg-card text-card-foreground rounded-lg shadow overflow-hidden">
+                <div className="p-6 bg-background">
+                    {availablePurchaseDetails.length === 0 ? (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Error</AlertTitle>
+                            <AlertDescription>
+                                Tidak ada data pembelian yang tersedia. Silakan tambahkan data pembelian terlebih dahulu.
+                            </AlertDescription>
+                        </Alert>
+                    ) : (
+                        <form onSubmit={submit} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Kolom Kiri */}
                                 <div className="space-y-4">
                                     <div>
@@ -602,12 +618,9 @@ export default function ProdukCreate() {
                                                 step="0.01"
                                                 value={data.margin}
                                                 onChange={(e) => setData('margin', e.target.value)}
-                                                className={`pl-3 pr-12 ${formErrors.margin ? 'border-red-500' : ''}`}
+                                                className="pl-3 pr-12"
                                                 required
                                             />
-                                            {formErrors.margin && (
-                                                <p className="mt-1 text-sm text-red-600">{formErrors.margin}</p>
-                                            )}
                                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                                 <span className="text-gray-500 sm:text-sm">%</span>
                                             </div>
@@ -641,12 +654,9 @@ export default function ProdukCreate() {
                                             max={selectedPurchaseDetail ? selectedPurchaseDetail.available_quantity : undefined}
                                             value={data.quantity}
                                             onChange={(e) => setData('quantity', parseInt(e.target.value) || 0)}
-                                            className={`mt-1 ${formErrors.quantity ? 'border-red-500' : ''}`}
+                                            className="mt-1"
                                             required
                                         />
-                                        {formErrors.quantity && (
-                                            <p className="mt-1 text-sm text-red-600">{formErrors.quantity}</p>
-                                        )}
                                         {selectedPurchaseDetail && (
                                             <p className="mt-1 text-sm text-gray-500">
                                                 Tersedia: {selectedPurchaseDetail.available_quantity} {selectedPurchaseDetail.kemasan}
@@ -718,17 +728,19 @@ export default function ProdukCreate() {
                                 </Link>
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting}
-                                    className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={processing || isSubmitting}
+                                    className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-semibold text-sm"
                                 >
-                                    {isSubmitting ? 'Menyimpan...' : 'Simpan Produk'}
+                                    {processing || isSubmitting ? 'Menyimpan...' : 'Simpan Produk'}
                                 </button>
-                                </div>
-                            </form>
-                        )}
+                            </div>
+                        </form>
+                    )}
                     </div>
                 </div>
             </div>
+            </div>
         </AppLayout>
     );
+}
 }

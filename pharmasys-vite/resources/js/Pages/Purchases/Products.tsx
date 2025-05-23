@@ -56,6 +56,27 @@ export default function Products({ purchaseDetails, filters: initialFilters }: P
     useEffect(() => {
         console.log('Using default margin: 20%');
         setDefaultMargin(20); // Default margin 20%
+        
+        // Add event listener for warehouse updates
+        const handleWarehouseUpdate = () => {
+            console.log('Warehouse update event received, reloading data...');
+            router.reload({
+                only: ['purchaseDetails'],
+                onSuccess: () => {
+                    console.log('Warehouse data reloaded successfully');
+                },
+                onError: (error) => {
+                    console.error('Error reloading warehouse data:', error);
+                }
+            });
+        };
+
+        window.addEventListener('warehouse:updated', handleWarehouseUpdate);
+        
+        // Cleanup
+        return () => {
+            window.removeEventListener('warehouse:updated', handleWarehouseUpdate);
+        };
     }, []);
 
     // Debounced search effect (optional, good for performance if API based)

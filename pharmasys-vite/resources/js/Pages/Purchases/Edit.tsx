@@ -28,6 +28,7 @@ import axios from 'axios';
 type Product = {
     id: number;
     name: string;
+    nama_produk?: string;
 };
 
 interface PurchaseEditPageProps extends PageProps {
@@ -311,58 +312,75 @@ export default function PurchaseEdit({
 
     // Tambahkan semua produk yang tersedia ke daftar pembelian
     const handleAddAllProducts = () => {
-        if (availableProducts.length === 0) return;
+        if (!availableProducts || availableProducts.length === 0) {
+            alert('Tidak ada produk yang tersedia untuk ditambahkan');
+            return;
+        }
         
         setDetails(prevDetails => {
-            // Buat Set dari nama produk yang sudah ada untuk pencarian yang lebih cepat
-            const existingProductNames = new Set(
-                prevDetails.map(d => d.nama_produk.toLowerCase())
-            );
-            
-            // Filter produk yang belum ada di details
-            const newProducts = availableProducts.filter((product: Product) => 
-                !existingProductNames.has(product.name.toLowerCase())
-            );
-            
-            if (newProducts.length === 0) {
-                // Tidak ada produk baru untuk ditambahkan
+            try {
+                // Buat Set dari nama produk yang sudah ada untuk pencarian yang lebih cepat
+                const existingProductNames = new Set(
+                    prevDetails
+                        .filter(d => d.nama_produk) // Hanya yang punya nama
+                        .map(d => d.nama_produk.toLowerCase())
+                );
+                
+                console.log('Existing product names:', Array.from(existingProductNames));
+                console.log('Available products:', availableProducts);
+                
+                // Filter produk yang belum ada di details
+                const newProducts = availableProducts.filter((product: Product) => {
+                    const productName = product.name || product.nama_produk || '';
+                    return productName && !existingProductNames.has(productName.toLowerCase());
+                });
+                
+                console.log('New products to add:', newProducts);
+                
+                if (newProducts.length === 0) {
+                    alert('Semua produk sudah ada dalam daftar pembelian');
+                    return prevDetails;
+                }
+                
+                // Buat detail baru untuk setiap produk yang belum ada
+                const newDetails = newProducts.map((product: any) => ({
+                    nama_produk: product.name || product.nama_produku || 'Produk Baru',
+                    expired: '',
+                    jumlah: '1',
+                    kemasan: '',
+                    harga_satuan: '0',
+                    gross: '0',
+                    discount_percentage: '0',
+                    sub_total: '0',
+                    product_id: product.id || '',
+                    product_name: product.name || product.nama_produk || 'Produk Baru'
+                }));
+                
+                // Gabungkan dengan details yang sudah ada
+                const updatedDetails = [...prevDetails, ...newDetails];
+                
+                // Tampilkan notifikasi
+                alert(`Berhasil menambahkan ${newProducts.length} produk ke daftar pembelian`);
+                
+                return updatedDetails;
+            } catch (error) {
+                console.error('Error in handleAddAllProducts:', error);
+                alert('Terjadi kesalahan saat menambahkan produk');
                 return prevDetails;
             }
-            
-            // Buat detail baru untuk setiap produk yang belum ada
-            const newDetails = newProducts.map((product: Product) => ({
-                nama_produk: product.name,
-                expired: '',
-                jumlah: '1',
-                kemasan: '',
-                harga_satuan: '0',
-                gross: '0',
-                discount_percentage: '0',
-                sub_total: '0',
-                product_id: product.id,
-                product_name: product.name
-            }));
-            
-            // Gabungkan dengan details yang sudah ada
-            const updatedDetails = [...prevDetails, ...newDetails];
-            
-            // Tampilkan notifikasi
-            alert(`Berhasil menambahkan ${newProducts.length} produk ke daftar pembelian`);
-            
-            return updatedDetails;
         });
     };
 
     // Tambah baris detail
     const addDetailRow = () => {
-        setDetails([
-            ...details,
+        setDetails(prevDetails => [
+            ...prevDetails,
             {
                 nama_produk: '',
                 expired: '',
-                jumlah: '',
+                jumlah: '1',
                 kemasan: '',
-                harga_satuan: '',
+                harga_satuan: '0',
                 gross: '0',
                 discount_percentage: '0',
                 sub_total: '0',
@@ -510,9 +528,18 @@ export default function PurchaseEdit({
             return;
         }
         
-        // Selalu kirim supplier_id dan pbf dengan nilai yang sama
+        // Dapatkan data supplier yang dipilih
+        const selectedSupplier = initialSuppliers.find(s => String(s.id) === finalSupplierId);
+        
+        if (!selectedSupplier) {
+            alert('Supplier tidak valid. Silakan pilih supplier yang benar.');
+            setProcessing(false);
+            return;
+        }
+        
+        // Kirim supplier_id dan pbf (nama perusahaan)
         formData.set('supplier_id', finalSupplierId);
-        formData.set('pbf', finalSupplierId);
+        formData.set('pbf', selectedSupplier.company);
         
         formData.append('tanggal_faktur', header.tanggal_faktur || new Date().toISOString().split('T')[0]);
         formData.append('tanggal_invoice', header.tanggal_faktur || new Date().toISOString().split('T')[0]);

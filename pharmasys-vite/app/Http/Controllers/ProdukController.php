@@ -14,6 +14,7 @@ use Illuminate\Http\Response;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -28,36 +29,50 @@ class ProdukController extends Controller
         $perPage = $filters['perPage'] ?? 10;
         $sortPrice = $filters['sort_price'] ?? null; // 'asc' or 'desc'
 
+
         // Debug log untuk memeriksa parameter request
         Log::info('Memuat daftar produk', [
             'search' => $search,
             'perPage' => $perPage,
-            'sort_price' => $sortPrice
+            'sort_price' => $sortPrice,
+            'all_params' => $request->all()
         ]);
+        
+        // Log semua status produk yang ada di database
+        $statusCounts = \DB::table('produk')
+            ->select('status', \DB::raw('count(*) as total'))
+            ->groupBy('status')
+            ->get();
+            
+        Log::info('Jumlah produk per status:', $statusCounts->toArray());
 
         // Get all active products with their categories and purchase details
         $produkQuery = Produk::with(['category', 'purchaseDetails'])
                         ->select('produk.*')
-                        ->where('produk.status', 'active') // Hanya tampilkan produk aktif
+                        ->where('produk.status', Produk::STATUS_ACTIVE) // Hanya tampilkan produk aktif
                         ->when($search, function ($query, $search) {
                             return $query->where('produk.nama', 'like', '%'.$search.'%');
-                        })
-                        ->addSelect([
-                            // Hitung total stok dari semua batch
-                            'total_stock' => function($query) {
-                                $query->selectRaw('COALESCE(SUM(jumlah), 0)')
-                                    ->from('purchase_details')
-                                    ->whereColumn('produk_id', 'produk.id')
-                                    ->where('jumlah', '>', 0); // Hanya hitung stok positif
-                            },
-                            // Hitung jumlah batch yang memiliki stok
-                            'batch_count' => function($query) {
-                                $query->selectRaw('COUNT(*)')
-                                    ->from('purchase_details')
-                                    ->whereColumn('produk_id', 'produk.id')
-                                    ->where('jumlah', '>', 0); // Hanya hitung batch dengan stok
-                            }
-                        ]);
+                        });
+                        
+        // Add stock calculation
+        $produkQuery->addSelect([
+            'total_stock' => function($query) {
+                $query->selectRaw('COALESCE(SUM(jumlah), 0)')
+                    ->from('purchase_details')
+                    ->whereColumn('produk_id', 'produk.id')
+                    ->where('jumlah', '>', 0);
+            },
+            'batch_count' => function($query) {
+                $query->selectRaw('COUNT(*)')
+                    ->from('purchase_details')
+                    ->whereColumn('produk_id', 'produk.id')
+                    ->where('jumlah', '>', 0);
+            }
+        ]);
+                        
+        // Log the raw SQL query
+        $rawQuery = Str::replaceArray('?', $produkQuery->getBindings(), $produkQuery->toSql());
+        Log::info('Query Produk:', ['query' => $rawQuery]);
                         
         // Tambahkan log untuk mengecek jumlah produk yang ditemukan
         $produkCount = (clone $produkQuery)->count();
@@ -308,7 +323,7 @@ class ProdukController extends Controller
                     'margin' => $marginPercentage,
                     'category_id' => $validated['category_id'] ?? null,
                     'image' => null,
-                    'status' => 'active', // Explicitly set status to active
+                    'status' => Produk::STATUS_ACTIVE, // Use the status constant from the Produk model
                 ];
                 
                 Log::info('Membuat produk baru dengan status: ' . $productDataForCreate['status'], $productDataForCreate);
@@ -322,6 +337,16 @@ class ProdukController extends Controller
                 // Restocking an existing product. We use the existing $produk.
                 // We do not update its name, category, margin, image, or harga from this form.
                 // These are managed via the "Edit Product" page.
+                
+                // Update status to active if it was draft
+                if ($produk->status === Produk::STATUS_DRAFT) {
+                    Log::info('Mengubah status produk dari draft ke active', [
+                        'produk_id' => $produk->id,
+                        'produk_nama' => $produk->nama
+                    ]);
+                    $produk->status = Produk::STATUS_ACTIVE;
+                    $produk->save();
+                }
             }
             
             $batchQuantity = $validated['quantity']; 
@@ -374,7 +399,16 @@ class ProdukController extends Controller
                 'is_new' => $isNewProduct
             ]);
 
-            return redirect()->route('produk.index')->with('success', $successMessage);
+            // Prepare success message
+            $successMessage = "Produk {$produk->nama} berhasil " . ($isNewProduct ? 'dibuat' : 'direstok') . " dengan stok {$batchQuantity}.";
+            if ($newProductBatch->expired) {
+                $successMessage .= " Tanggal kadaluwarsa: " . Carbon::parse($newProductBatch->expired)->format('d/m/Y');
+            }
+
+            // Return Inertia response
+            return redirect()->route('produk.index')
+                ->with('success', $successMessage);
+                
         } catch (\Exception $e) {
             DB::rollBack();
             $errorContext = [
@@ -395,8 +429,9 @@ class ProdukController extends Controller
             
             Log::error('Error in ProdukController@store: ' . $e->getMessage(), $errorContext);
             
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
-                        ->with('error_details', json_encode($errorContext, JSON_PRETTY_PRINT));
+            return back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
+                ->withInput();
         }
     }
 
@@ -749,6 +784,7 @@ class ProdukController extends Controller
 
         // Get products that have expired or will expire within 30 days
         $produk = Produk::with(['category', 'purchaseDetails'])
+                        ->where('status', 'active') // Hanya tampilkan produk aktif
                         ->whereHas('purchaseDetails', function($query) {
                             $query->whereNotNull('expired')
                                   ->where(function($q) {

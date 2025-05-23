@@ -151,7 +151,7 @@ class PurchaseController extends Controller
                     
                     $produk->harga = $detailItem['harga_satuan'] * $marginMultiplier;
                     $produk->margin = $defaultMargin;
-                    $produk->status = \App\Models\Produk::STATUS_DRAFT;
+                    $produk->status = \App\Models\Produk::STATUS_DRAFT; // Status draft (belum terdaftar)
                     $produk->save();
                 }
 
@@ -171,7 +171,7 @@ class PurchaseController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('purchases.index')->with('success', 'Pembelian berhasil dicatat.');
+            return redirect()->route('purchases.products')->with('success', 'Pembelian berhasil dicatat. Produk telah ditambahkan ke gudang dengan status belum terdaftar.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -224,6 +224,7 @@ class PurchaseController extends Controller
     {
         $validated = $request->validate([
             'no_faktur' => 'required|string',
+            'supplier_id' => 'required|exists:suppliers,id', // Pastikan supplier_id ada di database
             'pbf' => 'required|string',
             'tanggal_faktur' => 'required|date',
             'jatuh_tempo' => 'required|date',
@@ -238,7 +239,7 @@ class PurchaseController extends Controller
             'details.*.harga_satuan' => 'required|numeric|min:0',
             'details.*.gross' => 'required|numeric|min:0',
             'details.*.discount_percentage' => 'nullable|numeric|min:0|max:100',
-            'details.*.total' => 'required|numeric|min:0', // This 'total' is item's sub_total
+            'details.*.total' => 'required|numeric|min:0',
             'ppn_percentage' => 'nullable|numeric|min:0|max:100',
         ]);
         
@@ -252,14 +253,16 @@ class PurchaseController extends Controller
 
         $updateData = $request->only(['no_faktur', 'pbf', 'tanggal_faktur', 'jatuh_tempo', 'jumlah', 'tanggal_pembayaran', 'keterangan']);
         
-        // Find supplier_id based on pbf if pbf is part of $request and might change
-        if ($request->has('pbf')) {
-            $supplier = Supplier::where('company', $validated['pbf'])->first();
-            if (!$supplier) {
-                return redirect()->back()->withInput()->withErrors(['pbf' => 'Supplier tidak ditemukan.']);
-            }
-            $updateData['supplier_id'] = $supplier->id;
+        // Dapatkan supplier berdasarkan ID yang dikirim
+        $supplier = Supplier::find($validated['supplier_id']);
+        
+        if (!$supplier) {
+            return redirect()->back()->withInput()->withErrors(['supplier_id' => 'Supplier tidak ditemukan.']);
         }
+        
+        // Pastikan nama perusahaan supplier sesuai dengan yang ada di database
+        $updateData['pbf'] = $supplier->company;
+        $updateData['supplier_id'] = $supplier->id;
 
 
         $updateData['subtotal'] = $subtotal;
