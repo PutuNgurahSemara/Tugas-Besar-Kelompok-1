@@ -111,7 +111,7 @@ pharmasys-vite/
 
 1.  **Clone repository:**
     ```bash
-    git clone [URL_REPOSITORY_ANDA]
+    git clone https://github.com/PutuNgurahSemara/Tugas-Besar-Kelompok-1.git
     cd pharmasys-vite
     ```
 
