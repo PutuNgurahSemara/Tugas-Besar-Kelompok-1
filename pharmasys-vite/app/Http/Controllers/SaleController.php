@@ -143,9 +143,30 @@ class SaleController extends Controller
                 throw new Exception('Produk tidak ditemukan atau sudah tidak tersedia');
             }
             
-            if ($produkInfo['stock'] < $itemData['quantity']) {
-                $produk = Produk::find($itemData['produk_id']);
-                throw new Exception('Stok tidak mencukupi untuk produk: ' . ($produk->nama ?? '') . '. Stok tersedia: ' . $produkInfo['stock']);
+            // Pastikan quantity valid
+            if ($itemData['quantity'] <= 0) {
+                throw new Exception('Jumlah pembelian tidak valid');
+            }
+            
+            // Dapatkan data produk lengkap untuk perhitungan stok
+            $produk = Produk::with(['purchaseDetails', 'saleItems'])->findOrFail($itemData['produk_id']);
+            
+            // Hitung stok yang tersedia dengan lebih akurat
+            $totalPurchased = $produk->purchaseDetails->sum('jumlah');
+            $totalSold = $produk->saleItems->sum('quantity');
+            $availableStock = $totalPurchased - $totalSold;
+            
+            // Cek stok yang tersedia setelah transaksi ini
+            $stockAfterTransaction = $availableStock - $itemData['quantity'];
+            
+            if ($availableStock < $itemData['quantity']) {
+                throw new Exception('Stok tidak mencukupi untuk produk: ' . $produk->nama . '. Stok tersedia: ' . $availableStock);
+            }
+            
+            // Peringatan jika stok akan menjadi rendah setelah transaksi
+            $lowStockThreshold = (int) Setting::getValue('low_stock_threshold', 10);
+            if ($stockAfterTransaction <= $lowStockThreshold) {
+                Log::warning('Produk ' . $produk->nama . ' akan menjadi low stock setelah transaksi. Stok tersisa: ' . $stockAfterTransaction);
             }
             
             $price = $produkInfo['harga'];
@@ -162,6 +183,8 @@ class SaleController extends Controller
                 'amount_paid' => $validated['amount_paid'] ?? $calculatedTotalPrice,
             ]);
 
+            $lowStockProducts = [];
+            
             foreach ($validated['items'] as $itemData) {
                 $produk = Produk::with('purchaseDetails')->findOrFail($itemData['produk_id']);
                 $price = $produksInDb[$itemData['produk_id']]['harga'];
@@ -174,16 +197,76 @@ class SaleController extends Controller
                     'price' => $price,
                 ]);
 
-                // Reduce stock from purchase details
+                // Reduce stock from purchase details with additional validation
                 $remainingQty = $itemData['quantity'];
-                foreach ($produk->purchaseDetails->sortBy('expired') as $detail) {
+                $deductedDetails = [];
+                
+                // Sort by expired date (FIFO - First In First Out)
+                $purchaseDetails = $produk->purchaseDetails->sortBy('expired');
+                
+                foreach ($purchaseDetails as $detail) {
                     if ($remainingQty <= 0) break;
                     
-                    $deductQty = min($remainingQty, $detail->jumlah);
-                    $detail->jumlah -= $deductQty;
-                    $detail->save();
+                    // Pastikan jumlah yang akan dikurangi tidak melebihi stok yang ada
+                    $deductQty = min($remainingQty, max(0, $detail->jumlah));
                     
-                    $remainingQty -= $deductQty;
+                    if ($deductQty > 0) {
+                        $detail->jumlah -= $deductQty;
+                        $detail->save();
+                        $deductedDetails[] = [
+                            'purchase_detail_id' => $detail->id,
+                            'quantity' => $deductQty,
+                            'before' => $detail->jumlah + $deductQty,
+                            'after' => $detail->jumlah
+                        ];
+                        $remainingQty -= $deductQty;
+                    }
+                }
+                
+                // Jika masih ada sisa yang belum terpotong (seharusnya tidak terjadi karena sudah divalidasi)
+                if ($remainingQty > 0) {
+                    Log::error('Insufficient stock for product ID: ' . $produk->id . 
+                              '. Remaining quantity: ' . $remainingQty);
+                    throw new Exception('Stok tidak mencukupi untuk produk: ' . $produk->nama);
+                }
+                
+                // Log detail pengurangan stok untuk audit
+                Log::info('Stock deduction for product ID ' . $produk->id . ':', [
+                    'sale_id' => $sale->id,
+                    'product_name' => $produk->nama,
+                    'total_quantity' => $itemData['quantity'],
+                    'deductions' => $deductedDetails
+                ]);
+                
+                // Refresh to get latest stock data
+                $produk->refresh();
+                
+                // Collect products that are now low in stock
+                if ($produk->is_low_stock) {
+                    $lowStockProducts[] = $produk;
+                }
+            }
+            
+            // Create notifications for low stock products
+            if (!empty($lowStockProducts)) {
+                $notificationService = app(\App\Services\NotificationService::class);
+                foreach ($lowStockProducts as $produk) {
+                    $lowStockThreshold = (int) \App\Models\Setting::getValue('low_stock_threshold', 10);
+                    $title = 'Stok Produk Menipis';
+                    $description = "Stok {$produk->nama} tersisa {$produk->available_stock} (minimum: {$lowStockThreshold})";
+                    $link = route('produk.edit', $produk->id);
+                    
+                    $notificationService->createAdminNotification(
+                        $title, 
+                        $description, 
+                        'low_stock', 
+                        $link, 
+                        [
+                            'product_id' => $produk->id,
+                            'current_stock' => $produk->available_stock,
+                            'min_stock' => $lowStockThreshold
+                        ]
+                    );
                 }
             }
 

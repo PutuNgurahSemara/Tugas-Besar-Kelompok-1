@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\SaleItem;
 
 class Produk extends Model
 {
@@ -49,6 +50,14 @@ class Produk extends Model
     }
     
     /**
+     * Get the sale items associated with this product.
+     */
+    public function saleItems(): HasMany
+    {
+        return $this->hasMany(SaleItem::class);
+    }
+    
+    /**
      * Get the total stock quantity from all purchase details.
      */
     public function getTotalStockAttribute()
@@ -57,16 +66,24 @@ class Produk extends Model
     }
     
     /**
-     * Get the available stock quantity (not used in sales).
+     * Get the available stock quantity.
+     * Returns negative value if sold quantity exceeds purchased quantity.
      */
     public function getAvailableStockAttribute()
     {
-        // This is a placeholder - you'll need to implement the actual calculation
-        // based on your sales model structure
-        $totalStock = $this->total_stock;
-        $usedInSales = 0; // Replace with actual calculation from sales
+        $totalPurchased = $this->purchaseDetails()->sum('jumlah');
+        $totalSold = $this->saleItems()->sum('quantity');
         
-        return $totalStock - $usedInSales;
+        // Hitung stok yang tersedia (bisa negatif jika penjualan melebihi pembelian)
+        return $totalPurchased - $totalSold;
+    }
+    
+    /**
+     * Get the displayable stock quantity (never negative).
+     */
+    public function getDisplayStockAttribute()
+    {
+        return max(0, $this->available_stock);
     }
     
     /**
@@ -91,6 +108,29 @@ class Produk extends Model
     }
     
     /**
+     * Check if the product has invalid stock (sold more than purchased).
+     * Returns true if total sales > total purchases.
+     */
+    public function getHasInvalidStockAttribute()
+    {
+        $totalPurchased = $this->purchaseDetails()->sum('jumlah');
+        $totalSold = $this->saleItems()->sum('quantity');
+        
+        return $totalSold > $totalPurchased;
+    }
+    
+    /**
+     * Get the invalid stock quantity (negative value indicates how much over the limit).
+     */
+    public function getInvalidStockQuantityAttribute()
+    {
+        $totalPurchased = $this->purchaseDetails()->sum('jumlah');
+        $totalSold = $this->saleItems()->sum('quantity');
+        
+        return $totalSold - $totalPurchased;
+    }
+    
+    /**
      * Check if the product has any expired items.
      */
     public function getHasExpiredItemsAttribute()
@@ -107,12 +147,13 @@ class Produk extends Model
      */
     public function getIsLowStockAttribute()
     {
-        // Ensure Setting model is used correctly
         $lowStockThreshold = (int) \App\Models\Setting::getValue('low_stock_threshold', 10);
         
-        // Product is low on stock if available_stock is > 0 but <= threshold
-        // and not already considered out of stock.
-        return $this->available_stock > 0 && $this->available_stock <= $lowStockThreshold;
+        // Product is low on stock if:
+        // 1. Available stock is positive and <= threshold, OR
+        // 2. Stock is negative (invalid state that needs attention)
+        return ($this->available_stock > 0 && $this->available_stock <= $lowStockThreshold) || 
+               $this->available_stock < 0;
     }
 
     /**
@@ -120,10 +161,12 @@ class Produk extends Model
      */
     protected $appends = [
         'total_stock', 
-        'available_stock', 
+        'available_stock',
+        'display_stock',
         'earliest_expiry',
         'is_out_of_stock',
+        'has_invalid_stock',
         'has_expired_items',
-        'is_low_stock' // Add the new accessor here
+        'is_low_stock'
     ];
 }

@@ -19,7 +19,9 @@ class NotificationService
     public function createAdminNotification(string $title, string $description, string $type, ?string $link = null, array $data = [])
     {
         try {
-            $admins = User::role('admin')->get();
+            $admins = User::whereHas('roles', function ($query) {
+                $query->where('name', 'Admin');
+            })->get();
 
             foreach ($admins as $admin) {
                 $this->createNotification($admin->id, $title, $description, $type, $link, $data);
@@ -34,29 +36,10 @@ class NotificationService
 
     /**
      * Membuat notifikasi untuk user tertentu
-     * Mencegah duplikasi notifikasi dengan tipe dan konten yang sama dalam waktu 1 jam
      */
     public function createNotification(int $userId, string $title, string $description, string $type, ?string $link = null, array $data = [])
     {
         try {
-            // Cek apakah notifikasi serupa sudah ada dalam 1 jam terakhir
-            $existingNotification = Notification::where('user_id', $userId)
-                ->where('type', $type)
-                ->where('title', $title)
-                ->where('created_at', '>', now()->subHour())
-                ->first();
-
-            if ($existingNotification) {
-                // Update waktu notifikasi yang ada
-                $existingNotification->update([
-                    'unread' => true,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-                return $existingNotification;
-            }
-
-            // Buat notifikasi baru
             return Notification::create([
                 'user_id' => $userId,
                 'title' => $title,
@@ -64,18 +47,16 @@ class NotificationService
                 'type' => $type,
                 'link' => $link,
                 'data' => $data,
-                'unread' => true,
-                'created_at' => now(),
-                'updated_at' => now()
+                'unread' => true
             ]);
         } catch (\Exception $e) {
-            Log::error('Error creating notification: ' . $e->getMessage() . '\n' . $e->getTraceAsString());
+            Log::error('Error creating notification: ' . $e->getMessage());
             return null;
         }
     }
 
     /**
-     * Memeriksa produk yang stoknya menipis atau tidak valid
+     * Memeriksa produk yang stoknya menipis
      */
     public function checkLowStock()
     {
@@ -88,49 +69,37 @@ class NotificationService
             $produks = Produk::where('status', Produk::STATUS_ACTIVE)->get();
             Log::info('Total active products: ' . $produks->count());
             
-            // Filter produk yang stoknya menipis atau tidak valid
+            // Filter produk yang stoknya menipis
             $lowStockProduks = $produks->filter(function($item) use ($lowStockThreshold) {
-                $hasInvalidStock = $item->has_invalid_stock;
-                $isLowStock = $item->available_stock > 0 && $item->available_stock <= $lowStockThreshold;
-                
+                $isLowStock = $item->is_low_stock && $item->available_stock > 0;
                 Log::info(sprintf(
-                    'Product ID: %d, Name: %s, Available Stock: %d, Is Low Stock: %s, Has Invalid Stock: %s',
+                    'Product ID: %d, Name: %s, Available Stock: %d, Is Low Stock: %s',
                     $item->id,
                     $item->nama,
                     $item->available_stock,
-                    $isLowStock ? 'Yes' : 'No',
-                    $hasInvalidStock ? 'Yes' : 'No'
+                    $isLowStock ? 'Yes' : 'No'
                 ));
-                
-                return $isLowStock || $hasInvalidStock;
+                return $isLowStock;
             });
 
             Log::info('Low stock products found: ' . $lowStockProduks->count());
 
             if ($lowStockProduks->isNotEmpty()) {
                 foreach ($lowStockProduks as $item) {
-                    if ($item->has_invalid_stock) {
-                        $title = 'Stok Produk Tidak Valid';
-                        $description = "Stok {$item->nama} tidak valid (Stok: {$item->available_stock}). Jumlah penjualan melebihi pembelian!";
-                        $type = 'invalid_stock';
-                    } else {
-                        $title = 'Stok Produk Menipis';
-                        $description = "Stok {$item->nama} tersisa {$item->available_stock} (minimum: {$lowStockThreshold})";
-                        $type = 'low_stock';
-                    }
-                    
+                    $title = 'Stok Produk Menipis';
+                    $description = "Stok {$item->nama} tersisa {$item->available_stock} (minimum: {$lowStockThreshold})";
                     $link = route('produk.edit', $item->id);
+                    
                     Log::info('Creating notification for product: ' . $item->nama);
                     
                     $result = $this->createAdminNotification(
                         $title, 
                         $description, 
-                        $type, 
+                        'low_stock', 
                         $link, [
                             'product_id' => $item->id,
                             'current_stock' => $item->available_stock,
-                            'min_stock' => $lowStockThreshold,
-                            'has_invalid_stock' => $item->has_invalid_stock
+                            'min_stock' => $lowStockThreshold
                         ]
                     );
                     
@@ -156,8 +125,7 @@ class NotificationService
             
             // Filter produk yang stoknya habis menggunakan accessor
             $outOfStockProduks = $produks->filter(function($item) {
-                // Hanya tampilkan notifikasi untuk stok yang tidak negatif
-                return $item->is_out_of_stock && !$item->has_invalid_stock;
+                return $item->is_out_of_stock;
             });
 
             Log::info('Out of stock products found: ' . $outOfStockProduks->count());
@@ -170,8 +138,7 @@ class NotificationService
                     
                     $this->createAdminNotification($title, $description, 'out_of_stock', $link, [
                         'product_id' => $item->id,
-                        'current_stock' => $item->available_stock,
-                        'has_invalid_stock' => false
+                        'current_stock' => $item->available_stock
                     ]);
                 }
             }
@@ -279,30 +246,25 @@ class NotificationService
 
             Log::info('Checking payment due invoices. Found: ' . $purchases->count());
 
-            if ($purchases->isNotEmpty()) {
+            if ($purchases->count() > 0) {
                 foreach ($purchases as $purchase) {
-                    $daysLeft = Carbon::now()->diffInDays($purchase->jatuh_tempo, false);
+                    $daysLeft = Carbon::now()->diffInDays($purchase->jatuh_tempo);
+                    $title = 'Tagihan Mendekati Jatuh Tempo';
+                    $description = "Faktur pembelian #{$purchase->no_faktur} akan jatuh tempo dalam {$daysLeft} hari";
+                    $link = route('purchases.edit', $purchase->id);
                     
-                    // Bulatkan ke hari terdekat dan pastikan minimal 1 hari
-                    $daysLeft = max(1, round($daysLeft));
-                    
-                    $title = 'Faktur #' . $purchase->no_faktur . ' Akan Jatuh Tempo';
-                    $description = "Faktur #{$purchase->no_faktur} akan jatuh tempo dalam {$daysLeft} hari lagi.";
-                    $link = route('purchases.show', $purchase->id);
-                    
-                    $this->createAdminNotification($title, $description, 'payment_due', $link, [
+                    $this->createAdminNotification($title, $description, 'payment_due_soon', $link, [
                         'purchase_id' => $purchase->id,
                         'invoice_number' => $purchase->no_faktur,
                         'due_date' => $purchase->jatuh_tempo,
-                        'days_left' => $daysLeft,
-                        'formatted_due_date' => $purchase->jatuh_tempo->format('d/m/Y')
+                        'days_left' => $daysLeft
                     ]);
                 }
             }
 
             return $purchases->count();
         } catch (\Exception $e) {
-            Log::error('Error checking payment due: ' . $e->getMessage() . '\n' . $e->getTraceAsString());
+            Log::error('Error checking payment due: ' . $e->getMessage());
             return 0;
         }
     }
@@ -320,129 +282,50 @@ class NotificationService
 
             Log::info('Checking overdue payment invoices. Found: ' . $purchases->count());
 
-            if ($purchases->isNotEmpty()) {
+            if ($purchases->count() > 0) {
                 foreach ($purchases as $purchase) {
                     $daysOverdue = Carbon::now()->diffInDays($purchase->jatuh_tempo);
-                    
-                    // Bulatkan ke hari terdekat dan pastikan minimal 1 hari
-                    $daysOverdue = max(1, round($daysOverdue));
-                    
-                    $title = 'Faktur #' . $purchase->no_faktur . ' Melewati Jatuh Tempo';
-                    $description = "Faktur #{$purchase->no_faktur} telah melewati jatuh tempo {$daysOverdue} hari yang lalu.";
-                    $link = route('purchases.show', $purchase->id);
+                    $title = 'Tagihan Melewati Jatuh Tempo';
+                    $description = "Faktur pembelian #{$purchase->no_faktur} telah melewati jatuh tempo sebanyak {$daysOverdue} hari";
+                    $link = route('purchases.edit', $purchase->id);
                     
                     $this->createAdminNotification($title, $description, 'payment_overdue', $link, [
                         'purchase_id' => $purchase->id,
                         'invoice_number' => $purchase->no_faktur,
                         'due_date' => $purchase->jatuh_tempo,
-                        'days_overdue' => $daysOverdue,
-                        'formatted_due_date' => $purchase->jatuh_tempo->format('d/m/Y')
+                        'days_overdue' => $daysOverdue
                     ]);
                 }
             }
 
             return $purchases->count();
         } catch (\Exception $e) {
-            Log::error('Error checking overdue payment: ' . $e->getMessage() . '\n' . $e->getTraceAsString());
+            Log::error('Error checking overdue payment: ' . $e->getMessage());
             return 0;
         }
     }
-    
-    /**
-     * Run all notification checks
-     *
+
      * @return array
      */
     public function runAllChecks()
     {
         try {
-            Log::info("Running all notification checks");
-            
-            // Check for invalid stock first (highest priority)
-            $invalidStockCount = $this->checkInvalidStock();
+            Log::info('Running all notification checks');
             
             $stats = [
-                "invalid_stock" => $invalidStockCount,
-                "low_stock" => $this->checkLowStock(),
-                "out_of_stock" => $this->checkOutOfStock(),
-                "expiring_soon" => $this->checkExpiringSoon(),
-                "expired" => $this->checkExpiredProducts(),
-                "payment_due_soon" => $this->checkPaymentDue(),
-                "payment_overdue" => $this->checkOverduePayment()
+                'low_stock' => $this->checkLowStock(),
+                'out_of_stock' => $this->checkOutOfStock(),
+                'expiring_soon' => $this->checkExpiringSoon(),
+                'expired' => $this->checkExpiredProducts(),
+                'payment_due_soon' => $this->checkPaymentDue(),
+                'payment_overdue' => $this->checkOverduePayment()
             ];
             
-            Log::info("Notification check results: " . json_encode($stats));
+            Log::info('Notification check results: ' . json_encode($stats));
             return $stats;
         } catch (\Exception $e) {
-            Log::error("Error running all checks: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            Log::error('Error running all checks: ' . $e->getMessage());
             return [];
         }
     }
-    
-    /**
-     * Check for products with invalid stock (sold more than purchased)
-     */
-    public function checkInvalidStock()
-    {
-        try {
-            $produks = Produk::where('status', Produk::STATUS_ACTIVE)
-                ->withCount(['purchaseDetails as total_purchases' => function($query) {
-                    $query->select(DB::raw('COALESCE(SUM(jumlah), 0)'));
-                }])
-                ->withCount(['saleItems as total_sales' => function($query) {
-                    $query->select(DB::raw('COALESCE(SUM(quantity), 0)'));
-                }])
-                ->get()
-                ->filter(function($item) {
-                    return $item->has_invalid_stock;
-                });
-            
-            Log::info('Invalid stock products found: ' . $produks->count());
-            
-            if ($produks->isNotEmpty()) {
-                foreach ($produks as $item) {
-                    $totalPurchased = $item->purchaseDetails()->sum('jumlah');
-                    $totalSold = $item->saleItems()->sum('quantity');
-                    $invalidQty = $totalSold - $totalPurchased;
-                    
-                    $title = 'Stok Produk Tidak Valid';
-                    $description = "Produk {$item->nama} memiliki stok tidak valid! " . 
-                                 "Total Pembelian: {$totalPurchased}, " .
-                                 "Total Penjualan: {$totalSold}, " .
-                                 "Kelebihan: {$invalidQty} unit";
-                    
-                    $link = route('produk.edit', $item->id);
-                    
-                    $this->createAdminNotification(
-                        $title, 
-                        $description, 
-                        'invalid_stock', 
-                        $link, 
-                        [
-                            'product_id' => $item->id,
-                            'product_name' => $item->nama,
-                            'total_purchased' => $totalPurchased,
-                            'total_sold' => $totalSold,
-                            'invalid_quantity' => $invalidQty,
-                            'last_updated' => now()->toDateTimeString()
-                        ]
-                    );
-                    
-                    Log::warning("Invalid stock detected", [
-                        'product_id' => $item->id,
-                        'product_name' => $item->nama,
-                        'total_purchased' => $totalPurchased,
-                        'total_sold' => $totalSold,
-                        'invalid_quantity' => $invalidQty
-                    ]);
-                }
-            }
-            
-            return $produks->count();
-        } catch (\Exception $e) {
-            Log::error('Error checking invalid stock: ' . $e->getMessage() . '\n' . $e->getTraceAsString());
-            return 0;
-        }
-    }
 }
-

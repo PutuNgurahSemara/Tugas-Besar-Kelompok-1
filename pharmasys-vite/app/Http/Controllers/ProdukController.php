@@ -307,7 +307,9 @@ class ProdukController extends Controller
             if ($isNewProduct) {
                 // Creating a new product
                 $costPrice = (float) $sourcePurchaseDetail->harga_satuan;
-                $marginPercentage = (float) ($validated['margin'] ?? 0);
+                // Get default margin from settings if not provided, default to 10%
+                $defaultMargin = (float) Setting::getValue('default_margin', 10);
+                $marginPercentage = (float) ($validated['margin'] ?? $defaultMargin);
                 $sellingPrice = (float) round($costPrice * (1 + $marginPercentage / 100), 2);
 
                 Log::info('Menghitung harga jual', [
@@ -438,7 +440,12 @@ class ProdukController extends Controller
     public function edit(Produk $produk)
     {
         $categories = Category::orderBy('name')->get(['id', 'name']);
-        $defaultProfitMargin = (float) Setting::getValue('default_profit_margin', 20); // Get default margin
+        $defaultProfitMargin = (float) Setting::getValue('default_margin', 10); // Get default margin from settings
+        
+        // If product doesn't have a margin set, use the default
+        if (is_null($produk->margin)) {
+            $produk->margin = $defaultProfitMargin;
+        }
         
         // Eager load relations
         $produk->load(['category', 'purchaseDetails']);
@@ -460,6 +467,9 @@ class ProdukController extends Controller
                       });
             })
             ->get();
+            
+        // Calculate total stock
+        $totalStock = $currentPurchaseDetails->sum('jumlah');
         
         // Transform purchase details to a format suitable for the frontend
         $formattedPurchaseDetails = $availablePurchaseDetails->map(function($detail) use ($produk) {
@@ -480,16 +490,19 @@ class ProdukController extends Controller
             ];
         });
         
-        // Calculate total stock from all purchase details for this product
-        $totalStock = $currentPurchaseDetails->sum('jumlah');
-        
         return Inertia::render('Produk/Edit', [
             'produk' => $produk,
             'categories' => $categories,
             'availablePurchaseDetails' => $formattedPurchaseDetails,
             'totalStock' => $totalStock,
-            'currentPurchaseDetails' => $currentPurchaseDetails,
-            'defaultProfitMargin' => $defaultProfitMargin, // Pass to view
+            'currentPurchaseDetails' => $currentPurchaseDetails->map(function($detail) {
+                return [
+                    'id' => $detail->id,
+                    'purchase_id' => $detail->purchase_id,
+                    'quantity' => $detail->jumlah,
+                ];
+            }),
+            'defaultProfitMargin' => $defaultProfitMargin,
         ]);
     }
 
@@ -513,6 +526,14 @@ class ProdukController extends Controller
                 'purchase_details.*.id' => 'required|exists:purchase_details,id',
                 'purchase_details.*.quantity' => 'required|integer|min:0',
             ]);
+            
+            // If margin is provided, calculate the new price based on the average cost price
+            if (isset($validated['margin']) && $validated['margin'] >= 0) {
+                $averageCostPrice = $produk->purchaseDetails()->avg('harga_satuan');
+                if ($averageCostPrice) {
+                    $validated['harga'] = (int) round($averageCostPrice * (1 + $validated['margin'] / 100));
+                }
+            }
 
             // Use custom name if provided
             if (!empty($validated['custom_nama'])) {

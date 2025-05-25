@@ -86,8 +86,33 @@ function initOptimizations() {
     );
 }
 
+// Handle keyboard shortcuts
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Cegah semua aksi default untuk Ctrl+N
+        if (e.ctrlKey && e.key.toLowerCase() === 'n') {
+            e.preventDefault();
+            
+            // Tambahkan logika tambahan jika perlu
+            console.log('Ctrl+N diblokir. Gunakan Ctrl+Shift+N untuk membuka kasir');
+            return;
+        }
+
+        // Ctrl+Shift+N - Buka menu kasir
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'n') {
+            e.preventDefault();
+            // Gunakan window.location untuk navigasi
+            const baseUrl = window.location.origin;
+            window.location.href = `${baseUrl}/sales/create`;
+        }
+    });
+}
+
 // Call on app boot
-document.addEventListener('DOMContentLoaded', initOptimizations);
+document.addEventListener('DOMContentLoaded', () => {
+    initOptimizations();
+    setupKeyboardShortcuts();
+});
 
 // Add global declarations
 declare global {

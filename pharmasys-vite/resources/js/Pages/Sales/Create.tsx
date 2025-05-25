@@ -322,21 +322,22 @@ export default function SalesCreate() {
                             <div className="border-t pt-4 space-y-4 mt-auto">
                                 <div className="flex justify-between font-semibold text-lg">
                                     <span>{t('total')}</span>
-                                    <span>Rp {totalPrice.toLocaleString('id-ID')}</span>
+                                    <span>Rp {totalPrice.toLocaleString('id-ID', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
                                 </div>
                                 <div>
-                                    <Label htmlFor="payment_method">{t('payment.method')}</Label>
+                                    <Label htmlFor="payment_method">{t('Metode Pembayaran')}</Label>
                                     <Select 
                                         value={data.payment_method} 
                                         onValueChange={(value) => setData('payment_method', value)}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Select payment method" />
+                                            <SelectValue placeholder="Pilih Metode Pembayaran" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="cash">Cash</SelectItem>
                                             <SelectItem value="card">Card</SelectItem>
                                             <SelectItem value="transfer">Transfer</SelectItem>
+                                            <SelectItem value="qris">QRIS</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <InputError message={errors.payment_method as string | undefined} className="mt-2" />

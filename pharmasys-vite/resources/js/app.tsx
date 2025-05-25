@@ -49,31 +49,26 @@ createInertiaApp({
         }
     },
     setup({ el, App, props }) {
+        const root = createRoot(el);
+
         try {
-            console.log('Mounting target element:', el);
-            const root = createRoot(el);
-            
-            // Wrap app dengan Suspense untuk meningkatkan loading experience
             root.render(
-                <Suspense fallback={<LoadingIndicator />}>
-                    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+                <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+                    <Suspense fallback={<LoadingIndicator />}>
                         <App {...props} />
                         <ToastContainer />
-                    </ThemeProvider>
-                </Suspense>
+                    </Suspense>
+                </ThemeProvider>
             );
         } catch (error) {
-            console.error('Error setting up app:', error);
-            // Fallback rendering jika terjadi error
-            const rootElement = document.getElementById('app');
-            if (rootElement) {
-                rootElement.innerHTML = `
-                    <div style="display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column;">
-                        <h1 style="color: red; margin-bottom: 20px;">Terjadi kesalahan saat memuat aplikasi</h1>
-                        <p>Silakan refresh halaman atau hubungi administrator.</p>
-                    </div>
-                `;
-            }
+            console.error('Error rendering app:', error);
+            // Fallback jika terjadi error
+            root.render(
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column' }}>
+                    <h1 style={{ color: 'red', marginBottom: '20px' }}>Terjadi kesalahan saat memuat aplikasi</h1>
+                    <p>Silakan refresh halaman atau hubungi administrator.</p>
+                </div>
+            );
         }
     },
     progress: {
