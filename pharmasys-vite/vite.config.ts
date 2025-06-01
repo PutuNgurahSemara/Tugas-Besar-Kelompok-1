@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
 import { resolve } from 'node:path';
 import tailwindcss from 'tailwindcss';
-import autoprefixer from 'autoprefixer'; // ✅ Ubah require menjadi import
+import autoprefixer from 'autoprefixer';
 
 export default defineConfig({
   plugins: [
@@ -18,11 +18,12 @@ export default defineConfig({
     jsx: 'automatic',
   },
   resolve: {
-    alias: {
-      '@': '/resources/js',
-      'ziggy-js': resolve(__dirname, 'vendor/tightenco/ziggy'),
-    },
+    alias: [
+      { find: '@', replacement: resolve(__dirname, 'resources/js') },
+      { find: 'ziggy-js', replacement: resolve(__dirname, 'vendor/tightenco/ziggy') },
+    ],
   },
+
   css: {
     postcss: {
       plugins: [
@@ -34,28 +35,6 @@ export default defineConfig({
   build: {
     // Optimize chunks
     chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Split vendor dependencies into separate chunks
-          'react-vendor': ['react', 'react-dom'],
-          'ui-components': [
-            '@/components/ui/button',
-            '@/components/ui/card',
-            '@/components/ui/input',
-            '@/components/ui/avatar',
-            '@/components/ui/select',
-            '@/components/ui/dropdown-menu',
-            '@/components/ui/tooltip',
-            '@/components/ui/badge',
-          ],
-          // Chart.js is pretty heavy, so split it
-          'chart': ['chart.js', 'react-chartjs-2'],
-          // Common utilities
-          'utils': ['@/lib/utils', '@/hooks'],
-        },
-      },
-    },
     // Enable minification
     minify: 'terser',
     terserOptions: {
@@ -84,6 +63,7 @@ export default defineConfig({
       'react-chartjs-2',
       'chart.js',
       'lucide-react',
+      'resources/js/hooks/useKeyboardShortcut',
     ],
   },
 });

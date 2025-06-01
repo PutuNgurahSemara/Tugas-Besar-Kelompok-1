@@ -55,6 +55,7 @@
     },
     "devDependencies": {
         "@eslint/js": "^8.57.0",
+        "@rollup/plugin-node-resolve": "^16.0.1",
         "@tailwindcss/forms": "^0.5.10",
         "@types/node": "^22.13.5",
         "@types/react": "^19.0.3",
@@ -71,6 +72,7 @@
         "prettier": "^3.4.2",
         "prettier-plugin-organize-imports": "^4.1.0",
         "prettier-plugin-tailwindcss": "^0.6.11",
+        "terser": "^5.40.0",
         "typescript": "^5.7.2"
     }
 }

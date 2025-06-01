@@ -1,7 +1,7 @@
-// resources/js/pages/sales.tsx
+// resources/js/Pages/Sales.tsx
 import { Link } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import AppLayout from '../Layouts/AppLayout';
+import AppLayout from '../layouts/app-layout';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';

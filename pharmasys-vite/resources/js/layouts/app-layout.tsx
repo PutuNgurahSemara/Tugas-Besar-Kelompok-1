@@ -1,12 +1,12 @@
 // resources/js/layouts/app-layout.tsx
 import { type PropsWithChildren, useState, useEffect } from 'react';
-import { Sidebar } from '@/components/app-sidebar';
-import { AppHeader } from '@/components/app-header';
-import { cn } from '@/lib/utils';
-import { FlashMessage } from '@/components/flash-message';
+import { Sidebar } from '../components/app-sidebar';
+import { AppHeader } from '../components/app-header';
+import { cn } from '../lib/utils';
+import { FlashMessage } from '../components/flash-message';
 import { usePage } from '@inertiajs/react';
-import { type BreadcrumbItem, type PageProps } from '@/types';
-import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
+import { type BreadcrumbItem, type PageProps } from '../types';
+import { useKeyboardShortcut } from '../hooks/useKeyboardShortcut';
 
 
 interface AppLayoutProps {
