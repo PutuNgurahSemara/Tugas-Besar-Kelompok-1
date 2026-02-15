@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Web Server (Nginx)
   nginx:
@@ -25,30 +23,30 @@ services:
     networks:
       - pharmasys-network
     environment:
+      - DB_CONNECTION=pgsql
       - DB_HOST=database
-      - DB_PORT=3306
-      - DB_DATABASE=pharmasys
-      - DB_USERNAME=pharmasys
-      - DB_PASSWORD=pharmasys_password
+      - DB_PORT=5432
+      - DB_DATABASE=db_pharmasys
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
 
-  # MySQL Database
+  # PostgreSQL Database
   database:
-    image: mysql:8.0
+    image: postgres:latest
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     environment:
-      - MYSQL_ROOT_PASSWORD=root_password
-      - MYSQL_DATABASE=pharmasys
-      - MYSQL_USER=pharmasys
-      - MYSQL_PASSWORD=pharmasys_password
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=db_pharmasys
     networks:
       - pharmasys-network
 
   # Composer (untuk menjalankan perintah composer)
   composer:
-    image: composer:latest
+    image: docker.io/composer/composer:2
     volumes:
       - .:/var/www
     working_dir: /var/www
@@ -61,5 +59,5 @@ networks:
     driver: bridge
 
 volumes:
-  mysql_data:
+  postgres_data:
     driver: local

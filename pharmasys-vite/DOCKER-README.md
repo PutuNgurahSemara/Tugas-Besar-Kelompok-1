@@ -21,7 +21,16 @@ Copy semua file project ke laptop, pastikan ada file-file berikut:
 
 ### 2. Setup Environment
 
-Copy file `.env.docker` menjadi `.env`:
+Copy file `.env.docker` menjadi `.env`, dan pastikan variabel berikut sudah diatur untuk PostgreSQL:
+
+```bash
+DB_CONNECTION=pgsql
+DB_HOST=database
+DB_PORT=5432
+DB_DATABASE=nama_database
+DB_USERNAME=nama_user
+DB_PASSWORD=password_anda
+```
 
 ```bash
 cp .env.docker .env
@@ -61,11 +70,11 @@ Buka browser dan akses:
 
 ## Struktur Container
 
-| Service | Port | Deskripsi |
-|---------|------|-----------|
-| nginx | 80 | Web Server |
-| php | 9000 | PHP-FPM |
-| database | 3306 | MySQL 8.0 |
+| Service  | Port | Deskripsi          |
+|----------|------|--------------------|
+| nginx    | 80   | Web Server         |
+| php      | 9000 | PHP-FPM            |
+| database | 5432 | PostgreSQL 15 (atau latest) |
 
 ## Command Berguna
 
@@ -109,7 +118,7 @@ Pastikan container database sudah running:
 docker-compose ps
 ```
 
-###Permission denied
+### Permission denied
 ```bash
 docker-compose exec php chown -R www-data:www-data /var/www/storage
 docker-compose exec php chmod -R 755 /var/www/storage
@@ -134,4 +143,4 @@ Untuk deployment di client, bisa menggunakan konfigurasi yang lebih secure:
 
 ---
 
-**Catatan**: Jika ingin memindahkan ke laptop , cukup copy folder project lengkap (termasuk folder `.git` jika ada) dan jalankan langkah di atas.
+**Catatan**: Jika ingin memindahkan ke laptop, cukup copy folder project lengkap (termasuk folder `.git` jika ada) dan jalankan langkah di atas. Pastikan environment variabel database sudah disesuaikan untuk PostgreSQL seperti `DB_CONNECTION=pgsql` dan port `5432`.

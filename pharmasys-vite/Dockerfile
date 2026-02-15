@@ -1,41 +1,52 @@
-# Gunakan image PHP resmi dengan versi 8.2
-FROM php:8.2-fpm
+# Minimal Dockerfile untuk klien yang belum punya environment
 
-# Install sistem dependencies yang diperlukan
-RUN apt-get update && apt-get install -y \
+# Stage 1: Build frontend assets
+FROM node:18-alpine as frontend-builder
+
+WORKDIR /app
+
+# Copy only package.json and package-lock.json for caching
+COPY package.json package-lock.json ./
+
+RUN npm install
+
+# Copy frontend source files
+COPY . .
+
+RUN npm run build
+
+# Stage 2: PHP-FPM final image
+FROM php:8.2-fpm-alpine
+
+# Install PHP and PostgreSQL dependencies, supervisor, and system utilities
+RUN apk add --no-cache \
+    bash \
     git \
     curl \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
     libzip-dev \
     zip \
     unzip \
-    nodejs \
-    npm \
     supervisor \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql pdo_sqlite mbstring exif pcntl bcmath gd
-
-# Dapatkan Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+    postgresql-dev \
+    oniguruma-dev \
+    && docker-php-ext-install pdo pdo_pgsql mbstring zip
 
 # Set working directory
 WORKDIR /var/www
 
-# Copy file application
+# Copy backend source files
 COPY . .
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Copy built frontend assets from frontend-builder stage
+COPY --from=frontend-builder /app/public ./public
 
-# Install NPM dependencies dan build
-RUN npm install && npm run build
+# Install Composer and PHP dependencies
+RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
+    && php composer-setup.php --install-dir=/usr/bin --filename=composer \
+    && php -r "unlink('composer-setup.php');" \
+    && composer install --no-dev --optimize-autoloader
 
-# Set permissions yang tepat
+# Set permissions
 RUN chown -R www-data:www-data /var/www \
     && chmod -R 755 /var/www/storage \
     && chmod -R 755 /var/www/bootstrap/cache
